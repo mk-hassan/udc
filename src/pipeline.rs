@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::time::{Duration, Instant};
 
+use crate::config::Config;
 use crate::SourceType;
 
 pub struct Metrics {
@@ -13,6 +14,19 @@ pub struct Metrics {
     write_blocks: usize,
     write_partials: usize,
     time_duration: Duration,
+}	
+
+impl Metrics {
+	pub fn new() -> Self {
+		Metrics {
+			total_bytes: 0,
+			read_blocks: 0,
+			read_partials: 0,
+			write_blocks: 0,
+			write_partials: 0,
+			time_duration: Duration::new(0, 0),
+		}
+	}
 }
 
 impl Display for Metrics {
@@ -33,41 +47,47 @@ impl Display for Metrics {
     }
 }
 
-pub fn run(
-    source: &SourceType,
-    destination: &SourceType,
-    ibs: usize,
-    obs: usize,
-) -> Result<Metrics, Box<dyn Error>> {
+pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
     let start = Instant::now();
-    let mut reader = open_read_buffer(source, ibs)?;
-    let mut writer = open_write_buffer(destination, obs)?;
+    let mut metrics = Metrics::new();
 
-    let mut metrics = Metrics {
-        total_bytes: 0,
-        read_blocks: 0,
-        read_partials: 0,
-        write_blocks: 0,
-        write_partials: 0,
-        time_duration: Duration::new(0, 0),
-    };
+	let ibs = config.get_ibs();
+    let obs = config.get_obs();
+	
+    let mut reader = open_read_buffer(config.get_source(), ibs)?;
+    let mut writer = open_write_buffer(config.get_destination(), obs)?;
+	
+	if let Some(seek) = config.get_seek() {
+		handle_seek(&mut writer, obs, seek)?;
+	}
 
-    let mut buffer: Vec<u8> = vec![0; ibs];
+	if let Some(skip) = config.get_skip() {
+		handle_skip(&mut reader, ibs, skip)?;
+	}
+
+	let count = config.get_count();
+	let mut blocks_counter = 0usize;
+
+    let mut buffer = vec![0u8; ibs];
 	let mut accum: Vec<u8> = Vec::new();
 
     while let Ok(reads) = reader.read(&mut buffer) {
         if reads == 0 { break; }
 
-        if reads == ibs { metrics.read_blocks += 1; } 
+		blocks_counter += 1;
+		
+        if reads == ibs { metrics.read_blocks += 1; }
 		else { metrics.read_partials += 1; }
         metrics.total_bytes += reads;
-
-		accum.extend_from_slice(&buffer[..reads]); // only valid bytes
+		
+		accum.extend_from_slice(&buffer[..reads]);
         while accum.len() >= obs {
 			writer.write_all(&accum[..obs])?;
             accum.drain(..obs);
             metrics.write_blocks += 1;
         }
+		
+		if count.is_some_and(|c| blocks_counter >= c) { break; }
     }
 
     if !accum.is_empty() {
@@ -111,6 +131,25 @@ fn open_write_buffer(
     }
 }
 
+fn handle_seek(writer: &mut Box<dyn Write>, obs: usize, seek: usize) -> Result<(), Box<dyn Error>> {
+	let zero_buffer: Vec<u8> = vec![0; obs];
+	for _ in 0..seek { 
+		writer.write_all(&zero_buffer)?;
+	}
+	Ok(())
+}
+
+fn handle_skip(reader: &mut Box<dyn BufRead>, ibs: usize, skip: usize) -> Result<(), Box<dyn Error>> {
+	let mut remaining = skip * ibs;
+	let mut discard: Vec<u8> = vec![0u8; ibs];
+	while remaining > 0 {
+		let n = reader.read(&mut discard[..remaining.min(ibs)])?;
+		if n == 0 { break; }
+		remaining -= n;
+	}
+	Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,13 +164,13 @@ mod tests {
 
         fs::write(&in_path, input).unwrap();
 
-        let metrics = run(
-            &SourceType::File(in_path.to_str().unwrap().to_string()),
-            &SourceType::File(out_path.to_str().unwrap().to_string()),
-            ibs,
-            obs,
-        )
-        .unwrap();
+        let mut config = Config::new();
+        config.source(SourceType::File(in_path.to_str().unwrap().to_string()));
+        config.destination(SourceType::File(out_path.to_str().unwrap().to_string()));
+        config.input_block_size(ibs);
+        config.output_block_size(obs);
+
+        let metrics = run(&config).unwrap();
 
         let output = fs::read(&out_path).unwrap();
         assert_eq!(input, output.as_slice(), "[{}] content mismatch", test_name);

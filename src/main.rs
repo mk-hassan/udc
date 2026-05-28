@@ -10,15 +10,11 @@ fn main() {
         std::process::exit(1);
     });
 
-    let metrics = pipeline::run(
-        &config.source, 
-        &config.destination, 
-        config.get_ibs(), 
-        config.get_obs()
-    ).unwrap_or_else(|err| {
-        eprintln!("ccdd: {}", err);
-        std::process::exit(1);
-    });
+    let metrics = pipeline::run(&config)
+        .unwrap_or_else(|err| {
+            eprintln!("ccdd: {}", err);
+            std::process::exit(1);
+        });
 
     println!("{}", metrics);
 }

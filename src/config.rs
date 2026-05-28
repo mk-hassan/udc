@@ -3,31 +3,44 @@ use crate::constants;
 
 #[derive(Debug)]
 pub struct Config {
-    pub source: SourceType,
-    pub destination: SourceType,
+    source: SourceType,
+    destination: SourceType,
     block_size: Option<usize>,
     input_block_size: Option<usize>,
-    output_block_size: Option<usize>
+    output_block_size: Option<usize>,
+    count: Option<usize>,
+    skip: Option<usize>,
+    seek: Option<usize>
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Self, String> {
-        let mut config = Config {
+    pub fn new() -> Self {
+        Config {
             source: SourceType::Standard,
             destination: SourceType::Standard,
             block_size: None,
             input_block_size: None,
-            output_block_size: None
-        };
+            output_block_size: None,
+            count: None,
+            skip: None,
+            seek: None
+        }
+    }
+
+    pub fn build(args: &[String]) -> Result<Self, String> {
+        let mut config = Config::new();
 
         for arg in args[1..].iter() {
             let (key, value) = Self::parse_and_validate_argument(arg)?;
             match key {
-                constants::INPUT_FILE_ARG => config.source = SourceType::File(value.to_string()),
-                constants::OUTPUT_FILE_ARG => config.destination = SourceType::File(value.to_string()),
-                constants::BLOCK_SIZE_ARG => config.block_size = Some(Self::parse_and_validate_block_size(value)?),
-                constants::INPUT_BLOCK_SIZE_ARG => config.input_block_size = Some(Self::parse_and_validate_block_size(value)?),
-                constants::OUTPUT_BLOCK_SIZE_ARG => config.output_block_size = Some(Self::parse_and_validate_block_size(value)?),
+                constants::INPUT_FILE_ARG => config.source(SourceType::File(value.to_string())),
+                constants::OUTPUT_FILE_ARG => config.destination(SourceType::File(value.to_string())),
+                constants::BLOCK_SIZE_ARG => config.block_size(Self::parse_and_validate_block_size(value)?),
+                constants::INPUT_BLOCK_SIZE_ARG => config.input_block_size(Self::parse_and_validate_block_size(value)?),
+                constants::OUTPUT_BLOCK_SIZE_ARG => config.output_block_size(Self::parse_and_validate_block_size(value)?),
+                constants::COUNT_ARG => config.count(Self::parse_count(value)?),
+                constants::SKIP_ARG => config.skip(Self::parse_count(value)?),
+                constants::SEEK_ARG => config.seek(Self::parse_count(value)?),
                 _ => return Err(format!("ccdd: Unknown argument {}", key))
             }
         }
@@ -51,10 +64,10 @@ impl Config {
     fn parse_and_validate_block_size(size: &str) -> Result<usize, String> {        
         let multiplier = &size[size.len() - 1..];
         if !(multiplier >= "a" && multiplier <= "z" || multiplier >= "A" && multiplier <= "Z") {
-            return Ok(size.parse::<usize>().map_err(|_| format!("ccdd: invalid block size: {}", size))?);
+            return Ok(Config::parse_count(size)?);
         }
 
-        let base_value = size[..size.len() - 1].parse::<usize>().map_err(|_| format!("ccdd: invalid block size {}", size))?;
+        let base_value = Config::parse_count(&size[..size.len() - 1])?;
         let multiplier_value = match multiplier {
             "c" | "b" => 1,
             "w" => 8,
@@ -64,12 +77,59 @@ impl Config {
             _ => return Err(format!("ccdd: invalid block size multiplier {}", multiplier))
         };
         
-        let final_value = base_value.checked_mul(multiplier_value).ok_or_else(|| format!("ccdd: block size too large: {}", size))?;
+        let final_value = base_value
+            .checked_mul(multiplier_value)
+            .ok_or_else(|| format!("ccdd: block size too large: {}", size))?;
+
         if final_value >= constants::MAX_BLOCK_SIZE || final_value == 0 {
             return Err(format!("ccdd: invalid block size: {}", size));
         }
 
         Ok(final_value)
+    }
+
+    fn parse_count(value: &str) -> Result<usize, String> {
+        value.parse::<usize>().map_err(|_| format!("ccdd: invalid argument value: {}", value))
+    }
+
+    pub fn source(&mut self, source: SourceType) {
+        self.source = source;
+    }
+
+    pub fn destination(&mut self, destination: SourceType) {
+        self.destination = destination;
+    }
+
+    pub fn block_size(&mut self, block_size: usize) {
+        self.block_size = Some(block_size);
+    }
+
+    pub fn input_block_size(&mut self, input_block_size: usize) {
+        self.input_block_size = Some(input_block_size);
+    }
+
+    pub fn output_block_size(&mut self, output_block_size: usize) {
+        self.output_block_size = Some(output_block_size);
+    }
+
+    pub fn count(&mut self, count: usize) {
+        self.count = Some(count);
+    }
+
+    pub fn skip(&mut self, skip: usize) {
+        self.skip = Some(skip);
+    }
+
+    pub fn seek(&mut self, seek: usize) {
+        self.seek = Some(seek);
+    }
+
+    pub fn get_source(&self) -> &SourceType {
+        &self.source  
+    }
+
+    pub fn get_destination(&self) -> &SourceType {
+        &self.destination
     }
 
     pub fn get_ibs(&self) -> usize {
@@ -90,6 +150,18 @@ impl Config {
                 None => constants::DEFAULT_BLOCK_SIZE
             }
         }
+    }
+
+    pub fn get_seek(&self) -> Option<usize> {
+        self.seek
+    }
+
+    pub fn get_skip(&self) -> Option<usize> {
+        self.skip
+    }
+
+    pub fn get_count(&self) -> Option<usize> {
+        self.count
     }
 }
 
