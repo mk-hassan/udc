@@ -1,60 +1,19 @@
-use std::error::Error;
-use std::fmt::{ Display };
-use std::time::{Duration, Instant};
-
 mod conv;
 mod reader;
 mod writer;
+pub mod metrics;
+pub use metrics::Metrics;
 
-use crate::config::{ Config };
-use reader::Reader;
-use writer::Writer;
+use std::error::Error;
+use crate::config::Config;
 
-pub struct Metrics {
-    total_bytes: usize,
-    read_blocks: usize,
-    read_partials: usize,
-    write_blocks: usize,
-    write_partials: usize,
-    time_duration: Duration,
-}	
+use std::sync::atomic::{ AtomicBool, Ordering };
 
-impl Metrics {
-	pub fn new() -> Self {
-		Metrics {
-			total_bytes: 0,
-			read_blocks: 0,
-			read_partials: 0,
-			write_blocks: 0,
-			write_partials: 0,
-			time_duration: Duration::new(0, 0),
-		}
-	}
-}
-
-impl Display for Metrics {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let secs = self.time_duration.as_secs_f64();
-        let mb_per_sec = (self.total_bytes as f64) / (1024.0 * 1024.0) / secs;
-        writeln!(f, "{}+{} records in", self.read_blocks, self.read_partials)?;
-        writeln!(
-            f,
-            "{}+{} records out",
-            self.write_blocks, self.write_partials
-        )?;
-        write!(
-            f,
-            "{} bytes copied, {:.6} s, {:.2} MB/s",
-            self.total_bytes, secs, mb_per_sec
-        )
-    }
-}
+pub static PRINT_REQUEST: AtomicBool = AtomicBool::new(false);
 
 pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
-    let start = Instant::now();
-	
-    let mut reader = Reader::build(config)?;
-    let mut writer = Writer::build(config)?;
+    let mut reader = reader::Reader::build(config)?;
+    let mut writer = writer::Writer::build(config)?;
     
 	let ibs = config.get_ibs();
     let obs = config.get_obs();
@@ -64,7 +23,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
     
     let mut buffer = vec![0u8; ibs];
 	let mut accum: Vec<u8> = Vec::new();
-    
+
     let mut metrics = Metrics::new();
     loop {
         let reads = match reader.read(&mut buffer) {
@@ -86,7 +45,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
 		blocks_counter += 1;
 		
         if reads == ibs { metrics.read_blocks += 1; }
-		else { metrics.read_partials += 1; }
+        else { metrics.read_partials += 1; }
         metrics.total_bytes += reads;
 		
 		accum.extend_from_slice(&buffer[..reads]);
@@ -96,6 +55,9 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
             metrics.write_blocks += 1;
         }
 		
+        if PRINT_REQUEST.swap(false, Ordering::Relaxed) {
+            eprintln!("{}", metrics);
+        }
 		if count.is_some_and(|c| blocks_counter >= c) { break; }
     }
 
@@ -105,8 +67,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
     }
 
     writer.finalize()?;
-
-    metrics.time_duration = start.elapsed();
+    
     Ok(metrics)
 }
 
@@ -115,6 +76,7 @@ mod tests {
     use super::*;
     use crate::SourceType;
     use crate::config::WriteOps;
+
     use std::fs;
 
     /// Runs the pipeline with the given write_convs flags; returns (Metrics, output bytes).
@@ -127,7 +89,7 @@ mod tests {
         seek: Option<usize>,
         count: Option<usize>,
         flags: u8,
-    ) -> (Metrics, Vec<u8>) {
+    ) -> (metrics::Metrics, Vec<u8>) {
         let dir = std::env::temp_dir();
         let in_path = dir.join(format!("ccdd_{}_in.bin", test_name));
         let out_path = dir.join(format!("ccdd_{}_out.bin", test_name));
@@ -162,7 +124,7 @@ mod tests {
         skip: Option<usize>,
         seek: Option<usize>,
         count: Option<usize>,
-    ) -> (Metrics, Vec<u8>) {
+    ) -> (metrics::Metrics, Vec<u8>) {
         run_with_flags(test_name, input, ibs, obs, skip, seek, count, 0)
     }
 
