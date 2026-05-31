@@ -50,7 +50,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
 		
 		accum.extend_from_slice(&buffer[..reads]);
         while accum.len() >= obs {
-			let bytes = writer.write_all(&accum)?;
+			let bytes = writer.write_all(&mut accum)?;
             accum.drain(..bytes);
             metrics.write_blocks += 1;
         }
@@ -62,7 +62,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
     }
 
     if !accum.is_empty() {
-        writer.write_all(&accum)?;
+        writer.write_all(&mut accum)?;
         metrics.write_partials += 1;
     }
 

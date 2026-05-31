@@ -269,6 +269,18 @@ impl Config {
     pub fn is_noerror(&self) -> bool {
         self.write_convs & WriteOps::NoError as u8 != 0
     }
+
+    pub fn is_to_lower(&self) -> bool {
+        self.data_convs & DataOps::ToLower as u8 != 0
+    }
+
+    pub fn is_to_upper(&self) -> bool {
+        self.data_convs & DataOps::ToUpper as u8 != 0
+    }
+
+    pub fn is_swap(&self) -> bool {
+        self.data_convs & DataOps::Swap as u8 != 0
+    }
 }
 
 
