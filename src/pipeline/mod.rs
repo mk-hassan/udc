@@ -5,7 +5,7 @@ pub mod metrics;
 pub use metrics::Metrics;
 
 use std::error::Error;
-use crate::config::Config;
+use crate::config::{ Config, PrintOption };
 
 use std::sync::atomic::{ AtomicBool, Ordering };
 
@@ -55,9 +55,10 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
             metrics.write_blocks += 1;
         }
 		
-        if PRINT_REQUEST.swap(false, Ordering::Relaxed) {
+        if config.get_print_option() == &PrintOption::Progress || PRINT_REQUEST.swap(false, Ordering::Relaxed) {
             eprintln!("{}", metrics);
         }
+        
 		if count.is_some_and(|c| blocks_counter >= c) { break; }
     }
 
@@ -74,8 +75,7 @@ pub fn run(config: &Config) -> Result<Metrics, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::SourceType;
-    use crate::config::WriteOps;
+    use crate::config::{ WriteOps, SourceType };
 
     use std::fs;
 

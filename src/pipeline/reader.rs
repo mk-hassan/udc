@@ -1,8 +1,8 @@
 use std::fs::{ File };
 use std::io::{ Read, BufReader, Seek, SeekFrom, Stdin, Error, ErrorKind };
 
-use crate::config::Config;
-use crate::{SourceType, constants};
+use crate::config::{ Config, SourceType };
+use crate::constants;
 
 pub struct Reader {
 	ibs: usize,

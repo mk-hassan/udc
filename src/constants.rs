@@ -7,6 +7,7 @@ pub const COUNT_ARG: &str = "count";
 pub const SKIP_ARG: &str = "skip";
 pub const SEEK_ARG: &str = "seek";
 pub const CONVERSION_ARG: &str = "conv";
+pub const PRINT_STATUS_ARG: &str = "status";
 
 // data conversion options
 pub const CONVERSION_OPTION_LOWER_CASE: &str = "lcase";
@@ -18,6 +19,11 @@ pub const OUTPUT_OPTION_NO_TRUNC: &str = "notrunc";
 pub const OUTPUT_OPTION_SYNC: &str = "sync";
 pub const OUTPUT_OPTION_SPARSE: &str = "sparse";
 pub const OUTPUT_OPTION_NO_ERROR: &str = "noerror";
+
+// status print options
+pub const NO_PRINT: &str = "none";
+pub const NOXFER_PRINT: &str = "noxfer";
+pub const PROGRESS_PRINT: &str = "progress";
 
 pub const DEFAULT_BLOCK_SIZE: usize = 512;
 pub const MAX_BLOCK_SIZE: usize = 1024 * 1024 * 1024; // 1GB

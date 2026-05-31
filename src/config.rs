@@ -1,4 +1,3 @@
-use super::SourceType;
 use crate::constants;
 
 #[derive(Debug)]
@@ -12,7 +11,22 @@ pub struct Config {
     skip: Option<usize>,
     seek: Option<usize>,
     data_convs: u8,
-    write_convs: u8
+    write_convs: u8,
+    print_option: PrintOption
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SourceType {
+  File(String),
+  Standard
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PrintOption {
+    None,
+    Noxfer,
+    Progress,
+    Default
 }
 
 pub enum DataOps {
@@ -41,6 +55,7 @@ impl Config {
             seek: None,
             data_convs: 0,
             write_convs: 0,
+            print_option: PrintOption::Default
         }
     }
 
@@ -72,6 +87,10 @@ impl Config {
                     let (data_ops, output_ops) = Self::parse_conversions(value)?;
                     config = config.data_convs(data_ops);
                     config = config.write_convs(output_ops);
+                }
+                constants::PRINT_STATUS_ARG => {
+                    let status_option = Self::parse_and_validate_status_option(value)?;
+                    config = config.print_option(status_option);
                 }
                 _ => return Err(format!("ccdd: Unknown argument {}", key))
             }
@@ -161,6 +180,15 @@ impl Config {
         Ok(())
     }
 
+    fn parse_and_validate_status_option(value: &str) -> Result<PrintOption, &'static str> {
+        match value {
+            constants::NO_PRINT => Ok(PrintOption::None),
+            constants::NOXFER_PRINT => Ok(PrintOption::Noxfer),
+            constants::PROGRESS_PRINT => Ok(PrintOption::Progress),
+            _ => Err(constants::INVALID_ARGUMENT_VALUE)
+        }
+    }
+
     // setters
     pub fn source(mut self, source: SourceType) -> Self {
         self.source = source;
@@ -212,6 +240,11 @@ impl Config {
         self
     }
 
+    pub fn print_option(mut self, status_option: PrintOption) -> Self {
+        self.print_option = status_option;
+        self
+    }
+
     // getters
     pub fn get_source(&self) -> &SourceType {
         &self.source  
@@ -251,6 +284,10 @@ impl Config {
 
     pub fn get_count(&self) -> Option<usize> {
         self.count
+    }
+
+    pub fn get_print_option(&self) -> &PrintOption {
+        &self.print_option
     }
 
     // read & write options

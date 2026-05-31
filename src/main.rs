@@ -3,7 +3,7 @@ use std::sync::{ atomic::Ordering };
 use signal_hook::{ consts::SIGUSR1, iterator::Signals };
 
 use ccdd::pipeline;
-use ccdd::config::Config;
+use ccdd::config::{Config, PrintOption};
 
 fn main() {
     // parse and validate command line arguments
@@ -30,5 +30,9 @@ fn main() {
             std::process::exit(1);
         });
 
-    println!("{}", metrics);
+    match config.get_print_option() {
+        PrintOption::None => (),
+        PrintOption::Noxfer => println!("{}", metrics.input_output_stats()),
+        _ => println!("{}", metrics),
+    }
 }

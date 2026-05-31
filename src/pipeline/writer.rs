@@ -1,8 +1,8 @@
 use std::fs::{ File, OpenOptions };
 use std::io::{ BufWriter, Seek, SeekFrom, Stdout, Write, Error, ErrorKind };
 
-use crate::{SourceType, constants};
-use crate::config::Config;
+use crate::constants;
+use crate::config::{ Config, SourceType };
 
 use crate::pipeline::conv;
 
