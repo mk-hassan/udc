@@ -459,7 +459,7 @@ mod tests {
 
 	#[test]
     fn test_logical_pos_advances_on_sparse_zero_block_with_zero_length() {
-        let path = temp_path("logpos_sparse");
+        let path = temp_path("logpos_sparse_zero");
         let _ = fs::remove_file(&path);
 
         let mut writer = Writer::build(&make_config_flags(
