@@ -2,7 +2,7 @@
 name = "udc"
 edition = "2024"
 version = "1.0.0"
-rust-version = "1.85.0"
+rust-version = "1.87.0"
 license = "MIT OR Apache-2.0"
 description = "Unified Data Clone (UDC) is a cross-platform, high-performance, low-level block I/O data streaming utility designed to emulate the core behavior of the standard POSIX `dd` command."
 repository = "https://github.com/mk-hassan/udc"
