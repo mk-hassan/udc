@@ -10,7 +10,7 @@
 //! - **Dynamic Byte Multipliers**: Parses standard storage suffix multipliers (e.g., `k`, `b`, `M`, `G`) into exact byte capacities.
 //! - **Mutually Exclusive Invariants**: Flags conflicting operations at compile/initialization time (e.g., combining `lcase` and `ucase`).
 //!
-//! For an exhaustive list of all supported command-line arguments, sub-options, and platform-specific flag 
+//! For an exhaustive list of all supported command-line arguments, sub-options, and platform-specific flag
 //! configurations, please consult the crate's root `README.md`.
 //!
 //! ## Example
@@ -28,9 +28,9 @@
 //! # Ok::<(), udc::config::ConfigError>(())
 //! ```
 
+use crate::{constants, enums::*};
 use std::collections::HashMap;
 use std::fmt;
-use crate::{ constants, enums::* };
 
 /// Configuration structure for udc operations.
 ///
@@ -66,7 +66,7 @@ pub struct Config {
     write_convs: u8,
     iflag: u8,
     oflag: u8,
-    print_status: PrintStatus
+    print_status: PrintStatus,
 }
 
 /// Error types for configuration parsing and validation.
@@ -102,20 +102,40 @@ pub enum ConfigError {
     /// An argument value is outside acceptable bounds
     OutOfBounds(String, usize),
     /// A miscellaneous configuration error
-    Other(String)
+    Other(String),
 }
 
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigError::UnknownArgument(arg) => write!(f, "udc: config: Unknown argument: {}", arg),
-            ConfigError::InvalidFormat(arg) => write!(f, "udc: config: Invalid argument format: {}", arg),
-            ConfigError::InvalidArgumentValue(arg, value) => write!(f, "udc: config: {}: Invalid argument value {}", arg, value),
-            ConfigError::Duplicate(arg) => write!(f, "udc: config: Argument specified multiple times: {}", arg),
-            ConfigError::IllegalComb(arg1, arg2) => write!(f, "udc: config: Illegal argument combination: {} and {}", arg1, arg2),
-            ConfigError::IllegalCombWithValue(arg1, value1, value2) => write!(f, "udc: config: {}: Illegal values combination: {} {}", arg1, value1, value2),    
-            ConfigError::OutOfBounds(arg, value) => write!(f, "udc: config: Argument out of bounds: {} = {}", arg, value),
-            ConfigError::Other(msg) => write!(f, "udc: config: {}", msg),  
+            ConfigError::UnknownArgument(arg) => {
+                write!(f, "udc: config: Unknown argument: {}", arg)
+            }
+            ConfigError::InvalidFormat(arg) => {
+                write!(f, "udc: config: Invalid argument format: {}", arg)
+            }
+            ConfigError::InvalidArgumentValue(arg, value) => {
+                write!(f, "udc: config: {}: Invalid argument value {}", arg, value)
+            }
+            ConfigError::Duplicate(arg) => {
+                write!(f, "udc: config: Argument specified multiple times: {}", arg)
+            }
+            ConfigError::IllegalComb(arg1, arg2) => write!(
+                f,
+                "udc: config: Illegal argument combination: {} and {}",
+                arg1, arg2
+            ),
+            ConfigError::IllegalCombWithValue(arg1, value1, value2) => write!(
+                f,
+                "udc: config: {}: Illegal values combination: {} {}",
+                arg1, value1, value2
+            ),
+            ConfigError::OutOfBounds(arg, value) => write!(
+                f,
+                "udc: config: Argument out of bounds: {} = {}",
+                arg, value
+            ),
+            ConfigError::Other(msg) => write!(f, "udc: config: {}", msg),
         }
     }
 }
@@ -175,7 +195,7 @@ impl Config {
         let (mut count, mut count_bytes): (Option<&str>, Option<&str>) = (None, None);
         let (mut skip, mut skip_bytes): (Option<&str>, Option<&str>) = (None, None);
         let (mut seek, mut seek_bytes): (Option<&str>, Option<&str>) = (None, None);
-        
+
         for (key, value) in validated_args {
             match key {
                 constants::INPUT_FILE_ARG => config.source(value)?,
@@ -186,13 +206,13 @@ impl Config {
 
                 constants::COUNT_ARG => count = Some(value),
                 constants::COUNT_BYTES_ARG => count_bytes = Some(value),
-                
+
                 constants::SKIP_ARG => skip = Some(value),
                 constants::SKIP_BYTES_ARG => skip_bytes = Some(value),
-                
+
                 constants::SEEK_ARG => seek = Some(value),
                 constants::SEEK_BYTES_ARG => seek_bytes = Some(value),
-                
+
                 constants::CONVERSION_ARG => config.conversions(value)?,
                 constants::PRINT_STATUS_ARG => config.print_option(value)?,
                 constants::IFLAG_ARG => config.iflag(value)?,
@@ -216,7 +236,7 @@ impl Config {
         for argument in Self::get_allowed_arguments().iter() {
             exist.insert(argument, false);
         }
-        
+
         let mut result: Vec<(&str, &str)> = Vec::new();
         for arg in args {
             let (key, value) = Self::parse_argument(arg)?;
@@ -268,11 +288,15 @@ impl Config {
     /// # Ok::<(), udc::config::ConfigError>(())
     /// ```
     pub fn source(&mut self, source: &str) -> Result<()> {
-        if let SourceType::File(destination) = &self.destination && destination == source {
-            return Err(ConfigError::Other("input and output file cannot be the same".to_string()));
+        if let SourceType::File(destination) = &self.destination
+            && destination == source
+        {
+            return Err(ConfigError::Other(
+                "input and output file cannot be the same".to_string(),
+            ));
         }
 
-        self.source = SourceType::File(source.to_string()); 
+        self.source = SourceType::File(source.to_string());
         Ok(())
     }
 
@@ -293,8 +317,12 @@ impl Config {
     /// # }
     /// ```
     pub fn destination(&mut self, destination: &str) -> Result<()> {
-        if let SourceType::File(source) = &self.source && source == destination {
-            return Err(ConfigError::Other("input and output file cannot be the same".to_string()));
+        if let SourceType::File(source) = &self.source
+            && source == destination
+        {
+            return Err(ConfigError::Other(
+                "input and output file cannot be the same".to_string(),
+            ));
         }
 
         self.destination = SourceType::File(destination.to_string());
@@ -321,8 +349,11 @@ impl Config {
     /// # }
     /// ```
     pub fn block_size(&mut self, block_size: &str) -> Result<()> {
-        let Some(parsed_size) =  Self::validate_and_parse_size(block_size) else {
-            return Err(ConfigError::InvalidArgumentValue(constants::BLOCK_SIZE_ARG.to_string(), block_size.to_string()));
+        let Some(parsed_size) = Self::validate_and_parse_size(block_size) else {
+            return Err(ConfigError::InvalidArgumentValue(
+                constants::BLOCK_SIZE_ARG.to_string(),
+                block_size.to_string(),
+            ));
         };
 
         self.block_size = Some(parsed_size);
@@ -348,8 +379,11 @@ impl Config {
     /// # }
     /// ```
     pub fn input_block_size(&mut self, input_block_size: &str) -> Result<()> {
-        let Some(parsed_size) =  Self::validate_and_parse_size(input_block_size) else {
-            return Err(ConfigError::InvalidArgumentValue(constants::INPUT_BLOCK_SIZE_ARG.to_string(), input_block_size.to_string()));
+        let Some(parsed_size) = Self::validate_and_parse_size(input_block_size) else {
+            return Err(ConfigError::InvalidArgumentValue(
+                constants::INPUT_BLOCK_SIZE_ARG.to_string(),
+                input_block_size.to_string(),
+            ));
         };
 
         self.input_block_size = Some(parsed_size);
@@ -375,8 +409,11 @@ impl Config {
     /// # }
     /// ```
     pub fn output_block_size(&mut self, output_block_size: &str) -> Result<()> {
-        let Some(parsed_size) =  Self::validate_and_parse_size(output_block_size) else {
-            return Err(ConfigError::InvalidArgumentValue(constants::OUTPUT_BLOCK_SIZE_ARG.to_string(), output_block_size.to_string()));
+        let Some(parsed_size) = Self::validate_and_parse_size(output_block_size) else {
+            return Err(ConfigError::InvalidArgumentValue(
+                constants::OUTPUT_BLOCK_SIZE_ARG.to_string(),
+                output_block_size.to_string(),
+            ));
         };
         self.output_block_size = Some(parsed_size);
         Ok(())
@@ -422,7 +459,12 @@ impl Config {
                 constants::FULLBLOCK => flags |= InputFlags::FullBlock as u8,
                 constants::COUNTBYTES => flags |= InputFlags::CountBytes as u8,
                 constants::SKIPBYTES => flags |= InputFlags::SkipBytes as u8,
-                _ => return Err(ConfigError::InvalidArgumentValue(constants::IFLAG_ARG.to_string(), option.to_string()))
+                _ => {
+                    return Err(ConfigError::InvalidArgumentValue(
+                        constants::IFLAG_ARG.to_string(),
+                        option.to_string(),
+                    ));
+                }
             }
         }
 
@@ -446,7 +488,7 @@ impl Config {
     /// # }
     /// ```
     pub fn oflag(&mut self, oflag: &str) -> Result<()> {
-        self.oflag =  Self::validate_oflag_option(oflag)?;
+        self.oflag = Self::validate_oflag_option(oflag)?;
         Ok(())
     }
 
@@ -468,7 +510,12 @@ impl Config {
                 constants::NONBLOCK => flags |= OutputFlags::Nonblock as u8,
                 constants::NOCACHE => flags |= OutputFlags::Nocache as u8,
                 constants::SEEKBYTES => flags |= OutputFlags::SeekBytes as u8,
-                _ => return Err(ConfigError::InvalidArgumentValue(constants::OFLAG_ARG.to_string(), option.to_string()))
+                _ => {
+                    return Err(ConfigError::InvalidArgumentValue(
+                        constants::OFLAG_ARG.to_string(),
+                        option.to_string(),
+                    ));
+                }
             }
         }
         Ok(flags)
@@ -524,18 +571,31 @@ impl Config {
     /// Selects between block-based or byte-based values.
     ///
     /// Returns the value in the appropriate unit based on which parameter is specified.
-    fn select_blocks_or_bytes(&self, number_of_blocks: Option<&str>, number_of_bytes: Option<&str>, multiplier: usize) -> Result<Option<usize>> {
+    fn select_blocks_or_bytes(
+        &self,
+        number_of_blocks: Option<&str>,
+        number_of_bytes: Option<&str>,
+        multiplier: usize,
+    ) -> Result<Option<usize>> {
         // invalid case
         if number_of_blocks.is_some() && number_of_bytes.is_some() {
-            return Err(ConfigError::IllegalComb(constants::COUNT_ARG.to_string(), constants::COUNT_BYTES_ARG.to_string()));
+            return Err(ConfigError::IllegalComb(
+                constants::COUNT_ARG.to_string(),
+                constants::COUNT_BYTES_ARG.to_string(),
+            ));
         }
 
         // base case: neither blocks nor bytes specified → None
-        if number_of_blocks.is_none() && number_of_bytes.is_none() { return Ok(None); }
+        if number_of_blocks.is_none() && number_of_bytes.is_none() {
+            return Ok(None);
+        }
 
         if let Some(bytes) = number_of_bytes {
             let Some(parsed_size) = Self::validate_and_parse_size(bytes) else {
-                return Err(ConfigError::InvalidArgumentValue(constants::COUNT_BYTES_ARG.to_string(), bytes.to_string()));
+                return Err(ConfigError::InvalidArgumentValue(
+                    constants::COUNT_BYTES_ARG.to_string(),
+                    bytes.to_string(),
+                ));
             };
             return Ok(Some(parsed_size));
         }
@@ -543,13 +603,21 @@ impl Config {
         let value = number_of_blocks.unwrap();
         if self.iflag & InputFlags::CountBytes as u8 != 0 {
             let Some(parsed_size) = Self::validate_and_parse_size(value) else {
-                return Err(ConfigError::InvalidArgumentValue(constants::COUNT_ARG.to_string(), value.to_string()));
+                return Err(ConfigError::InvalidArgumentValue(
+                    constants::COUNT_ARG.to_string(),
+                    value.to_string(),
+                ));
             };
             return Ok(Some(parsed_size));
         }
 
-        let Some(amount) = Self::parse_number(value).and_then(|parsed_value| parsed_value.checked_mul(multiplier)) else {
-            return Err(ConfigError::InvalidArgumentValue(constants::COUNT_ARG.to_string(), value.to_string()));
+        let Some(amount) =
+            Self::parse_number(value).and_then(|parsed_value| parsed_value.checked_mul(multiplier))
+        else {
+            return Err(ConfigError::InvalidArgumentValue(
+                constants::COUNT_ARG.to_string(),
+                value.to_string(),
+            ));
         };
 
         Ok(Some(amount))
@@ -585,19 +653,34 @@ impl Config {
 
         for option in value.split(',') {
             match option {
-                constants::CONVERSION_OPTION_LOWER_CASE => data_conversions |= DataOps::ToLower as u8,
-                constants::CONVERSION_OPTION_UPPER_CASE => data_conversions |= DataOps::ToUpper as u8,
+                constants::CONVERSION_OPTION_LOWER_CASE => {
+                    data_conversions |= DataOps::ToLower as u8
+                }
+                constants::CONVERSION_OPTION_UPPER_CASE => {
+                    data_conversions |= DataOps::ToUpper as u8
+                }
                 constants::CONVERSION_OPTION_SWAP => data_conversions |= DataOps::Swap as u8,
                 constants::OUTPUT_OPTION_NO_TRUNC => output_conversions |= FileOps::NoTrunc as u8,
                 constants::OUTPUT_OPTION_SYNC => output_conversions |= FileOps::Sync as u8,
                 constants::OUTPUT_OPTION_SPARSE => output_conversions |= FileOps::Sparse as u8,
                 constants::OUTPUT_OPTION_NO_ERROR => output_conversions |= FileOps::NoError as u8,
-                _ => return Err(ConfigError::InvalidArgumentValue(constants::CONVERSION_ARG.to_string(), option.to_string()))
+                _ => {
+                    return Err(ConfigError::InvalidArgumentValue(
+                        constants::CONVERSION_ARG.to_string(),
+                        option.to_string(),
+                    ));
+                }
             }
         }
 
-        if data_conversions & DataOps::ToLower as u8 != 0 && data_conversions & DataOps::ToUpper as u8 != 0 {
-            return Err(ConfigError::IllegalCombWithValue(constants::CONVERSION_ARG.to_string(), constants::CONVERSION_OPTION_LOWER_CASE.to_string(), constants::CONVERSION_OPTION_UPPER_CASE.to_string()));
+        if data_conversions & DataOps::ToLower as u8 != 0
+            && data_conversions & DataOps::ToUpper as u8 != 0
+        {
+            return Err(ConfigError::IllegalCombWithValue(
+                constants::CONVERSION_ARG.to_string(),
+                constants::CONVERSION_OPTION_LOWER_CASE.to_string(),
+                constants::CONVERSION_OPTION_UPPER_CASE.to_string(),
+            ));
         }
 
         self.data_convs = data_conversions;
@@ -620,7 +703,12 @@ impl Config {
             constants::NO_PRINT => PrintStatus::None,
             constants::NOXFER_PRINT => PrintStatus::Noxfer,
             constants::PROGRESS_PRINT => PrintStatus::Progress,
-            _ => return Err(ConfigError::InvalidArgumentValue(constants::PRINT_STATUS_ARG.to_string(), value.to_string()))
+            _ => {
+                return Err(ConfigError::InvalidArgumentValue(
+                    constants::PRINT_STATUS_ARG.to_string(),
+                    value.to_string(),
+                ));
+            }
         };
         Ok(())
     }
@@ -637,7 +725,7 @@ impl Config {
     /// let source = config.get_source();
     /// ```
     pub fn get_source(&self) -> &SourceType {
-        &self.source  
+        &self.source
     }
 
     /// Returns a reference to the output destination.
@@ -669,8 +757,8 @@ impl Config {
             Some(size) => size,
             None => match self.block_size {
                 Some(size) => size,
-                None => constants::DEFAULT_BLOCK_SIZE
-            }
+                None => constants::DEFAULT_BLOCK_SIZE,
+            },
         }
     }
 
@@ -689,9 +777,9 @@ impl Config {
         match self.output_block_size {
             Some(size) => size,
             None => match self.block_size {
-                Some(size) => size, 
-                None => constants::DEFAULT_BLOCK_SIZE
-            }
+                Some(size) => size,
+                None => constants::DEFAULT_BLOCK_SIZE,
+            },
         }
     }
 
@@ -779,7 +867,7 @@ impl Config {
 
     /// Returns true if sparse file output is enabled
     pub fn is_sparse(&self) -> bool {
-        self.write_convs & FileOps::Sparse as u8 != 0   
+        self.write_convs & FileOps::Sparse as u8 != 0
     }
 
     /// Returns true if the operation should continue on read errors
@@ -857,7 +945,7 @@ impl Config {
     fn validate_and_parse_size(size: &str) -> Option<usize> {
         let base_value: usize;
         let mut multiplier_value = 1usize;
-        
+
         let multiplier_char: char = size.chars().last().unwrap();
         if multiplier_char.is_alphabetic() {
             multiplier_value = Self::convert_multiplier(multiplier_char)?;
@@ -874,7 +962,9 @@ impl Config {
     /// Returns `None` if the character is not a recognized multiplier.
     #[inline]
     fn convert_multiplier(size_multiplier: char) -> Option<usize> {
-        if size_multiplier.is_numeric() { return Some(1) }
+        if size_multiplier.is_numeric() {
+            return Some(1);
+        }
 
         let value = match size_multiplier {
             'c' => 1,
@@ -883,8 +973,8 @@ impl Config {
             'k' | 'K' => 1024,
             'M' => 1024 * 1024,
             'G' => 1024 * 1024 * 1024,
-            _ => return None
-        };   
+            _ => return None,
+        };
 
         Some(value)
     }
@@ -915,11 +1005,10 @@ impl Config {
             constants::CONVERSION_ARG,
             constants::PRINT_STATUS_ARG,
             constants::IFLAG_ARG,
-            constants::OFLAG_ARG
+            constants::OFLAG_ARG,
         ]
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -948,7 +1037,12 @@ mod tests {
             "udc: config: Illegal argument combination: count and count_bytes"
         );
         assert_eq!(
-            ConfigError::IllegalCombWithValue("conv".to_string(), "lcase".to_string(), "ucase".to_string()).to_string(),
+            ConfigError::IllegalCombWithValue(
+                "conv".to_string(),
+                "lcase".to_string(),
+                "ucase".to_string()
+            )
+            .to_string(),
             "udc: config: conv: Illegal values combination: lcase ucase"
         );
         assert_eq!(
@@ -965,15 +1059,27 @@ mod tests {
 
     #[test]
     fn test_parse_argument_valid() {
-        assert_eq!(Config::parse_argument("if=test.txt").unwrap(), ("if", "test.txt"));
+        assert_eq!(
+            Config::parse_argument("if=test.txt").unwrap(),
+            ("if", "test.txt")
+        );
         assert_eq!(Config::parse_argument("bs=1M").unwrap(), ("bs", "1M"));
     }
 
     #[test]
     fn test_parse_argument_invalid() {
-        assert!(matches!(Config::parse_argument("invalid_format"), Err(ConfigError::InvalidFormat(_))));
-        assert!(matches!(Config::parse_argument("if="), Err(ConfigError::InvalidFormat(_))));
-        assert!(matches!(Config::parse_argument("=test.txt"), Err(ConfigError::InvalidFormat(_))));
+        assert!(matches!(
+            Config::parse_argument("invalid_format"),
+            Err(ConfigError::InvalidFormat(_))
+        ));
+        assert!(matches!(
+            Config::parse_argument("if="),
+            Err(ConfigError::InvalidFormat(_))
+        ));
+        assert!(matches!(
+            Config::parse_argument("=test.txt"),
+            Err(ConfigError::InvalidFormat(_))
+        ));
     }
 
     // --- SIZE & MULTIPLIER TESTS ---
@@ -1015,9 +1121,15 @@ mod tests {
         let mut config = Config::default();
         config.source("input.txt").unwrap();
         config.destination("output.txt").unwrap();
-        
-        assert_eq!(config.get_source(), &SourceType::File("input.txt".to_string()));
-        assert_eq!(config.get_destination(), &SourceType::File("output.txt".to_string()));
+
+        assert_eq!(
+            config.get_source(),
+            &SourceType::File("input.txt".to_string())
+        );
+        assert_eq!(
+            config.get_destination(),
+            &SourceType::File("output.txt".to_string())
+        );
     }
 
     // --- BLOCK SIZE FALLBACK HIERARCHY TESTS ---
@@ -1025,7 +1137,7 @@ mod tests {
     #[test]
     fn test_block_sizes_hierarchy() {
         let mut config = Config::default();
-        
+
         // Default fallback
         assert_eq!(config.get_ibs(), constants::DEFAULT_BLOCK_SIZE);
         assert_eq!(config.get_obs(), constants::DEFAULT_BLOCK_SIZE);
@@ -1050,7 +1162,10 @@ mod tests {
         config.block_size("512").unwrap(); // multiplier = 512
 
         // Neither provided
-        assert_eq!(config.select_blocks_or_bytes(None, None, 512).unwrap(), None);
+        assert_eq!(
+            config.select_blocks_or_bytes(None, None, 512).unwrap(),
+            None
+        );
 
         // Both provided (Illegal)
         assert!(matches!(
@@ -1059,14 +1174,27 @@ mod tests {
         ));
 
         // Only bytes
-        assert_eq!(config.select_blocks_or_bytes(None, Some("1k"), 512).unwrap(), Some(1024));
+        assert_eq!(
+            config
+                .select_blocks_or_bytes(None, Some("1k"), 512)
+                .unwrap(),
+            Some(1024)
+        );
 
         // Only blocks (translates to blocks * multiplier)
-        assert_eq!(config.select_blocks_or_bytes(Some("2"), None, 512).unwrap(), Some(1024));
+        assert_eq!(
+            config.select_blocks_or_bytes(Some("2"), None, 512).unwrap(),
+            Some(1024)
+        );
 
         // Only blocks, but count_bytes flag is active
         config.iflag = InputFlags::CountBytes as u8;
-        assert_eq!(config.select_blocks_or_bytes(Some("1k"), None, 512).unwrap(), Some(1024));
+        assert_eq!(
+            config
+                .select_blocks_or_bytes(Some("1k"), None, 512)
+                .unwrap(),
+            Some(1024)
+        );
     }
 
     // --- BITMASK PARSING & GETTERS TESTS ---
@@ -1075,33 +1203,53 @@ mod tests {
     fn test_iflag_parsing() {
         let mut config = Config::default();
         config.iflag("direct,nonblock,fullblock").unwrap();
-        
-        assert_eq!(config.iflag & InputFlags::Direct as u8, InputFlags::Direct as u8);
-        assert_eq!(config.iflag & InputFlags::Nonblock as u8, InputFlags::Nonblock as u8);
-        assert_eq!(config.iflag & InputFlags::FullBlock as u8, InputFlags::FullBlock as u8);
+
+        assert_eq!(
+            config.iflag & InputFlags::Direct as u8,
+            InputFlags::Direct as u8
+        );
+        assert_eq!(
+            config.iflag & InputFlags::Nonblock as u8,
+            InputFlags::Nonblock as u8
+        );
+        assert_eq!(
+            config.iflag & InputFlags::FullBlock as u8,
+            InputFlags::FullBlock as u8
+        );
         assert_eq!(config.iflag & InputFlags::Nocache as u8, 0); // Not set
-        
-        assert!(matches!(config.iflag("invalid_flag"), Err(ConfigError::InvalidArgumentValue(_, _))));
+
+        assert!(matches!(
+            config.iflag("invalid_flag"),
+            Err(ConfigError::InvalidArgumentValue(_, _))
+        ));
     }
 
     #[test]
     fn test_oflag_parsing() {
         let mut config = Config::default();
         config.oflag("dsync,seek_bytes").unwrap();
-        
-        assert_eq!(config.oflag & OutputFlags::Dsync as u8, OutputFlags::Dsync as u8);
-        assert_eq!(config.oflag & OutputFlags::SeekBytes as u8, OutputFlags::SeekBytes as u8);
+
+        assert_eq!(
+            config.oflag & OutputFlags::Dsync as u8,
+            OutputFlags::Dsync as u8
+        );
+        assert_eq!(
+            config.oflag & OutputFlags::SeekBytes as u8,
+            OutputFlags::SeekBytes as u8
+        );
     }
 
     #[test]
     fn test_conversions_parsing_and_getters() {
         let mut config = Config::default();
-        config.conversions("lcase,swab,notrunc,sparse,noerror").unwrap();
+        config
+            .conversions("lcase,swab,notrunc,sparse,noerror")
+            .unwrap();
 
         assert!(config.is_to_lower());
         assert!(config.is_swap());
         assert!(!config.is_to_upper());
-        
+
         assert!(!config.is_truncate()); // notrunc flag flips this logic
         assert!(config.is_sparse());
         assert!(config.is_noerror());
@@ -1117,13 +1265,16 @@ mod tests {
     #[test]
     fn test_print_option() {
         let mut config = Config::default();
-        
+
         config.print_option(constants::NO_PRINT).unwrap();
         assert_eq!(config.get_print_option(), &PrintStatus::None);
 
         config.print_option(constants::PROGRESS_PRINT).unwrap();
         assert_eq!(config.get_print_option(), &PrintStatus::Progress);
 
-        assert!(matches!(config.print_option("invalid_status"), Err(ConfigError::InvalidArgumentValue(_, _))));
+        assert!(matches!(
+            config.print_option("invalid_status"),
+            Err(ConfigError::InvalidArgumentValue(_, _))
+        ));
     }
 }

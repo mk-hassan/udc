@@ -4,11 +4,11 @@
 //! implementing unified `Read` and `Seek` traits for sequential block processing.
 
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Stdin, Error, ErrorKind};
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Stdin};
 
 use super::{
     config::Config,
-    enums::{SourceType, InputFlags},
+    enums::{InputFlags, SourceType},
 };
 
 mod utils;
@@ -45,14 +45,14 @@ impl Seek for Reader {
     ///
     /// ## Warnings
     ///
-    /// For unseekable streams like `Stdin`, this method emulates absolute position jumps by 
-    /// performing destructive byte consumption. Consequently, subsequent absolute seeks will 
+    /// For unseekable streams like `Stdin`, this method emulates absolute position jumps by
+    /// performing destructive byte consumption. Consequently, subsequent absolute seeks will
     /// perform calculations relative to current state instead of the historical file start.
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let SeekFrom::Start(offset) = pos else {
             return Err(Error::new(
-                ErrorKind::InvalidInput, 
-                "udc: validation: only seeking from the start of the file is supported for reader skipping operations"
+                ErrorKind::InvalidInput,
+                "udc: validation: only seeking from the start of the file is supported for reader skipping operations",
             ));
         };
 
@@ -66,22 +66,20 @@ impl Seek for Reader {
 impl Reader {
     /// Instantiates and configures a `Reader` type matching configuration rules.
     ///
-    /// Evaluates initialization requirements, handles low-level file open permissions, 
+    /// Evaluates initialization requirements, handles low-level file open permissions,
     /// cross-platform flags, and skips initial data bounds.
     ///
     /// ## Errors
     ///
-    /// Returns a box-allocated error wrapper if file access is rejected, platform configuration 
+    /// Returns a box-allocated error wrapper if file access is rejected, platform configuration
     /// fails, or an early EOF happens during data skipping.
     pub fn build(config: &Config) -> Result<Reader, Box<dyn std::error::Error>> {
         let mut target = match config.get_source() {
             SourceType::File(path) => {
                 let file = Self::get_file_reader(path, config.get_iflag())?;
                 Reader::File(file)
-            },
-            SourceType::Standard => {
-                Reader::Stdin(std::io::stdin())
             }
+            SourceType::Standard => Reader::Stdin(std::io::stdin()),
         };
 
         if let &Some(skip_bytes) = config.get_skip() {
@@ -93,12 +91,12 @@ impl Reader {
 
     /// Emulates data positioning operations for unseekable resources by consuming bytes in chunks.
     ///
-    /// Rather than single massive byte array generation, this uses a fixed allocation 
+    /// Rather than single massive byte array generation, this uses a fixed allocation
     /// cache block (4096 bytes) to protect the environment against heap fragmentation or OOM failures.
     ///
     /// ## Errors
     ///
-    /// Returns `UnexpectedEof` if the underlying stream runs dry before the requested skip offset 
+    /// Returns `UnexpectedEof` if the underlying stream runs dry before the requested skip offset
     /// constraint is satisfied.
     fn skip(source: &mut dyn Read, offset: u64) -> std::io::Result<u64> {
         let mut remaining = offset;
@@ -110,7 +108,7 @@ impl Reader {
                 Ok(0) => {
                     return Err(Error::new(
                         ErrorKind::UnexpectedEof,
-                        "udc: stdin: reached EOF before completing the skip operation"
+                        "udc: stdin: reached EOF before completing the skip operation",
                     ));
                 }
                 Ok(n) => {
@@ -126,10 +124,8 @@ impl Reader {
     /// Resolves system paths, establishing operational files configured to matching cache specifications.
     fn get_file_reader(path: &str, flags: u8) -> Result<File, Box<dyn std::error::Error>> {
         let mut options = utils::get_options_with_flags(flags);
-        
-        let file = options
-            .read(true)
-            .open(path)?;
+
+        let file = options.read(true).open(path)?;
 
         #[cfg(target_os = "macos")]
         {
@@ -141,7 +137,6 @@ impl Reader {
         Ok(file)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -157,8 +152,8 @@ mod tests {
     fn temp_file_with(data: &[u8]) -> (File, PathBuf) {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir()
-            .join(format!("udc_reader_test_{}_{}", std::process::id(), id));
+        let path =
+            std::env::temp_dir().join(format!("udc_reader_test_{}_{}", std::process::id(), id));
         std::fs::write(&path, data).unwrap();
         (File::open(&path).unwrap(), path)
     }

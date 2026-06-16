@@ -4,9 +4,9 @@
 //! current platform and applies macOS-specific direct I/O configuration when
 //! requested.
 
-use std::fs::{ File, OpenOptions };
+use std::fs::{File, OpenOptions};
 
-use crate::enums::{ OutputFlags };
+use crate::enums::OutputFlags;
 
 #[cfg(target_family = "unix")]
 /// Builds [`OpenOptions`] with platform-specific output flags applied.
@@ -15,33 +15,33 @@ use crate::enums::{ OutputFlags };
 /// `OpenOptionsExt::custom_flags` values. Unsupported flags are ignored by this
 /// helper and are expected to be handled by higher-level validation.
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
-	use std::os::unix::fs::OpenOptionsExt;
-	
-	let mut options = OpenOptions::new();
+    use std::os::unix::fs::OpenOptionsExt;
 
-	let mut unix_flags = 0;
-	#[cfg(target_os = "linux")]
-	if flags & OutputFlags::Direct as u8 != 0 {
-		unix_flags |= libc::O_DIRECT;
-	}
+    let mut options = OpenOptions::new();
 
-	if flags & OutputFlags::Nonblock as u8 != 0 {
-		unix_flags |= libc::O_NONBLOCK;
-	}
+    let mut unix_flags = 0;
+    #[cfg(target_os = "linux")]
+    if flags & OutputFlags::Direct as u8 != 0 {
+        unix_flags |= libc::O_DIRECT;
+    }
 
-	if flags & OutputFlags::Sync as u8 != 0 {
-		unix_flags |= libc::O_SYNC;
-	}
+    if flags & OutputFlags::Nonblock as u8 != 0 {
+        unix_flags |= libc::O_NONBLOCK;
+    }
 
-	if flags & OutputFlags::Dsync as u8 != 0 {
-		unix_flags |= libc::O_DSYNC;
-	}
+    if flags & OutputFlags::Sync as u8 != 0 {
+        unix_flags |= libc::O_SYNC;
+    }
 
-	if unix_flags != 0 {
-		options.custom_flags(unix_flags);
-	}
+    if flags & OutputFlags::Dsync as u8 != 0 {
+        unix_flags |= libc::O_DSYNC;
+    }
 
-	options
+    if unix_flags != 0 {
+        options.custom_flags(unix_flags);
+    }
+
+    options
 }
 
 #[cfg(target_family = "windows")]
@@ -51,29 +51,29 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 /// `OpenOptionsExt::custom_flags` values. Flags that are not meaningful on
 /// Windows are ignored or downgraded to a warning.
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
-	use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::fs::OpenOptionsExt;
     use windows::Win32::Storage::FileSystem;
 
-	let mut options = OpenOptions::new();
+    let mut options = OpenOptions::new();
 
-	let mut windows_flags = 0;
-	if flags & OutputFlags::Direct as u8 != 0 {
-		windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING;
-	}
+    let mut windows_flags = 0;
+    if flags & OutputFlags::Direct as u8 != 0 {
+        windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING;
+    }
 
-	if flags & OutputFlags::Nonblock as u8 != 0 {
-		eprintln!("Warning: 'iflag=nonblock' flag is not supported on Windows and will be ignored");
-	}
+    if flags & OutputFlags::Nonblock as u8 != 0 {
+        eprintln!("Warning: 'iflag=nonblock' flag is not supported on Windows and will be ignored");
+    }
 
-	if flags & OutputFlags::Sync as u8 != 0 || flags & OutputFlags::Dsync as u8 != 0 {
-		windows_flags |= FileSystem::FILE_FLAG_WRITE_THROUGH;
-	}
+    if flags & OutputFlags::Sync as u8 != 0 || flags & OutputFlags::Dsync as u8 != 0 {
+        windows_flags |= FileSystem::FILE_FLAG_WRITE_THROUGH;
+    }
 
-	if windows_flags != 0 {
-		options.custom_flags(windows_flags);
-	}
+    if windows_flags != 0 {
+        options.custom_flags(windows_flags);
+    }
 
-	options
+    options
 }
 
 #[cfg(target_os = "macos")]
@@ -82,16 +82,16 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 /// This applies `F_NOCACHE` to the file descriptor so the kernel avoids
 /// caching reads and writes for the target file.
 pub fn configure_file_for_direct_io(file: &File) -> Result<(), Box<dyn std::error::Error>> {
-	use std::os::unix::io::AsRawFd;
-	use libc::{ fcntl, F_NOCACHE };
+    use libc::{F_NOCACHE, fcntl};
+    use std::os::unix::io::AsRawFd;
 
-	let fd = file.as_raw_fd();
-	let result = unsafe { fcntl(fd, F_NOCACHE, 1) };
-	if result == -1 {
-		return Err(Box::new(std::io::Error::last_os_error()));
-	}
+    let fd = file.as_raw_fd();
+    let result = unsafe { fcntl(fd, F_NOCACHE, 1) };
+    if result == -1 {
+        return Err(Box::new(std::io::Error::last_os_error()));
+    }
 
-	Ok(())
+    Ok(())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,8 +109,7 @@ mod tests {
     fn temp_path() -> PathBuf {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir()
-            .join(format!("udc_wutils_test_{}_{}", std::process::id(), id))
+        std::env::temp_dir().join(format!("udc_wutils_test_{}_{}", std::process::id(), id))
     }
 
     fn open_write(path: &PathBuf) -> File {
@@ -143,7 +142,10 @@ mod tests {
         let path = temp_path();
         let mut opts = get_options_with_flags(OutputFlags::Nonblock as u8);
         let result = opts.write(true).create(true).truncate(true).open(&path);
-        assert!(result.is_ok(), "Expected open to succeed with Nonblock flag");
+        assert!(
+            result.is_ok(),
+            "Expected open to succeed with Nonblock flag"
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -177,7 +179,10 @@ mod tests {
         let flags = OutputFlags::Sync as u8 | OutputFlags::Nonblock as u8;
         let mut opts = get_options_with_flags(flags);
         let result = opts.write(true).create(true).truncate(true).open(&path);
-        assert!(result.is_ok(), "Expected open to succeed with Sync|Nonblock flags");
+        assert!(
+            result.is_ok(),
+            "Expected open to succeed with Sync|Nonblock flags"
+        );
         let _ = std::fs::remove_file(path);
     }
 

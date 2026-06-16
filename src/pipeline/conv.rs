@@ -1,13 +1,13 @@
 //! Data conversion utilities for the block-stream transformation pipeline.
 //!
-//! This module provides synchronous, in-place modifier functions acting over mutable 
+//! This module provides synchronous, in-place modifier functions acting over mutable
 //! byte segments to enforce text casing constraints and word/byte alignment configurations.
 
 use super::DataOps;
 
 /// Converts all ASCII alphabetic characters in the provided buffer to lowercase.
 ///
-/// Non-alphabetic ASCII characters, numbers, control symbols, and raw multi-byte 
+/// Non-alphabetic ASCII characters, numbers, control symbols, and raw multi-byte
 /// non-ASCII binary patterns are left completely unchanged.
 ///
 /// ## Examples
@@ -27,7 +27,7 @@ pub fn to_lower(buffer: &mut [u8]) {
 
 /// Converts all ASCII alphabetic characters in the provided buffer to uppercase.
 ///
-/// Non-alphabetic ASCII characters, numbers, control symbols, and raw multi-byte 
+/// Non-alphabetic ASCII characters, numbers, control symbols, and raw multi-byte
 /// non-ASCII binary patterns are left completely unchanged.
 ///
 /// ## Examples
@@ -51,7 +51,7 @@ pub fn to_upper(buffer: &mut [u8]) {
 ///
 /// ## Corner Case Handling
 ///
-/// If an odd-length byte slice is processed, the final trailing byte is intentionally left 
+/// If an odd-length byte slice is processed, the final trailing byte is intentionally left
 /// in place and skipped to guarantee safe operation and prevent out-of-bounds panics.
 ///
 /// ## Examples
@@ -73,7 +73,7 @@ pub fn swap(buffer: &mut [u8]) {
 
 /// Batch applies an ordered sequence of transformation operations over a buffer in place.
 ///
-/// The conversions execute sequentially from left to right exactly in the order they 
+/// The conversions execute sequentially from left to right exactly in the order they
 /// are structured within the array reference.
 ///
 /// ## Examples
@@ -88,9 +88,15 @@ pub fn swap(buffer: &mut [u8]) {
 /// assert_eq!(&buf, b"BADCe");
 /// ```
 pub fn convert(buffer: &mut [u8], convs: u8) {
-    if convs & DataOps::ToLower as u8 != 0 { to_lower(buffer); }
-    if convs & DataOps::ToUpper as u8 != 0 { to_upper(buffer); }
-    if convs & DataOps::Swap as u8 != 0 { swap(buffer); }
+    if convs & DataOps::ToLower as u8 != 0 {
+        to_lower(buffer);
+    }
+    if convs & DataOps::ToUpper as u8 != 0 {
+        to_upper(buffer);
+    }
+    if convs & DataOps::Swap as u8 != 0 {
+        swap(buffer);
+    }
 }
 
 #[cfg(test)]
@@ -124,13 +130,13 @@ mod tests {
     #[test]
     fn test_to_lower_handles_non_ascii_safely() {
         // Arrange
-        let mut buffer = [0x41, 0xFF, 0x42, 0x80]; 
+        let mut buffer = [0x41, 0xFF, 0x42, 0x80];
 
         // Act
         to_lower(&mut buffer);
 
         // Assert
-        assert_eq!(&buffer, &[0x61, 0xFF, 0x62, 0x80]); 
+        assert_eq!(&buffer, &[0x61, 0xFF, 0x62, 0x80]);
     }
 
     #[test]
@@ -160,13 +166,13 @@ mod tests {
     #[test]
     fn test_to_upper_handles_non_ascii_safely() {
         // Arrange
-        let mut buffer = [0x61, 0xFF, 0x62, 0x80]; 
+        let mut buffer = [0x61, 0xFF, 0x62, 0x80];
 
         // Act
         to_upper(&mut buffer);
 
         // Assert
-        assert_eq!(&buffer, &[0x41, 0xFF, 0x42, 0x80]); 
+        assert_eq!(&buffer, &[0x41, 0xFF, 0x42, 0x80]);
     }
 
     #[test]

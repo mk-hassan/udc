@@ -1,9 +1,9 @@
+use signal_hook::{consts::SIGUSR1, iterator::Signals};
 use std::env;
-use std::sync::{ atomic::Ordering };
-use signal_hook::{ consts::SIGUSR1, iterator::Signals };
+use std::sync::atomic::Ordering;
 
-use udc::pipeline::{ self, Pipeline };
 use udc::config::Config;
+use udc::pipeline::{self, Pipeline};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse and validate command line arguments
@@ -23,17 +23,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut pipeline = Pipeline::build(config)
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            std::process::exit(1);
-        });
+    let mut pipeline = Pipeline::build(config).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    });
 
-    pipeline.run()
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            std::process::exit(1);
-        });
+    pipeline.run().unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    });
 
     pipeline.print_metrics();
     Ok(())

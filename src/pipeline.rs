@@ -28,20 +28,20 @@
 
 use core::fmt;
 use std::{
-    io::{ Read, Write }, 
-    sync::atomic::{ AtomicBool, Ordering }
+    io::{Read, Write},
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 mod conv;
-mod utils;
 pub mod metrics;
+mod utils;
 
-use super::{ 
-    reader::Reader, 
-    writer::Writer,
-    config::Config,
+use super::{
     aligned_buffer::AlignedBuffer,
-    enums::{ SourceType, DataOps, PrintStatus }
+    config::Config,
+    enums::{DataOps, PrintStatus, SourceType},
+    reader::Reader,
+    writer::Writer,
 };
 
 use metrics::Metrics;
@@ -50,15 +50,21 @@ use metrics::Metrics;
 pub enum PipelineError {
     Mismatch(String, String),
     Hardware(String),
-    IoError(std::io::Error)
+    IoError(std::io::Error),
 }
 
 impl fmt::Display for PipelineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PipelineError::Mismatch(expected, found) => write!(f, "multiplicity mismatch: expected {} to be multiple of {}", expected, found),
-            PipelineError::Hardware(msg) => write!(f, "udc: hardware: error reading sector size: {}", msg),
-            PipelineError::IoError(msg) => write!(f, "udc: io error: {}", msg)
+            PipelineError::Mismatch(expected, found) => write!(
+                f,
+                "multiplicity mismatch: expected {} to be multiple of {}",
+                expected, found
+            ),
+            PipelineError::Hardware(msg) => {
+                write!(f, "udc: hardware: error reading sector size: {}", msg)
+            }
+            PipelineError::IoError(msg) => write!(f, "udc: io error: {}", msg),
         }
     }
 }
@@ -73,7 +79,7 @@ impl std::error::Error for PipelineError {}
 
 type Result<T> = std::result::Result<T, PipelineError>;
 
-pub struct Pipeline{
+pub struct Pipeline {
     reader: Reader,
     read_buffer: AlignedBuffer,
     writer: Writer,
@@ -111,19 +117,22 @@ impl Pipeline {
             remaining_count: *config.get_count(),
             eof_reached: false,
             error_found: false,
-            config
+            config,
         };
 
         Ok(pipeline)
     }
 
-    fn get_buffer_reader(config: &Config) -> Result<AlignedBuffer>{
+    fn get_buffer_reader(config: &Config) -> Result<AlignedBuffer> {
         let mut input_alignment = 1;
         if config.is_direct_input() {
             match config.get_source() {
-                SourceType::Standard => eprintln!("udc: warning: direct access for the standard input is not supported for any platform"),
+                SourceType::Standard => eprintln!(
+                    "udc: warning: direct access for the standard input is not supported for any platform"
+                ),
                 SourceType::File(path) => {
-                    input_alignment = utils::check_direct_access(path, config.get_ibs(),config.get_skip())?
+                    input_alignment =
+                        utils::check_direct_access(path, config.get_ibs(), config.get_skip())?
                 }
             }
         }
@@ -131,13 +140,16 @@ impl Pipeline {
         Ok(AlignedBuffer::new(config.get_ibs(), input_alignment))
     }
 
-    fn get_buffer_writer(config: &Config) -> Result<AlignedBuffer>{
+    fn get_buffer_writer(config: &Config) -> Result<AlignedBuffer> {
         let mut output_alignment = 1;
         if config.is_direct_output() {
             match config.get_destination() {
-                SourceType::Standard => eprintln!("udc: warning: direct access for the standard output is not supported for any platform"),
+                SourceType::Standard => eprintln!(
+                    "udc: warning: direct access for the standard output is not supported for any platform"
+                ),
                 SourceType::File(path) => {
-                    output_alignment = utils::check_direct_access(path, config.get_obs(), config.get_seek())?
+                    output_alignment =
+                        utils::check_direct_access(path, config.get_obs(), config.get_seek())?
                 }
             }
         }
@@ -175,7 +187,9 @@ impl Pipeline {
             self.handle_read()?;
 
             // sync handling
-            if self.error_found && !self.config.is_sync() { continue; }
+            if self.error_found && !self.config.is_sync() {
+                continue;
+            }
             if self.config.is_sync() && !self.eof_reached {
                 self.read_buffer.fill_rest(0);
                 self.read_buffer.set_length(self.read_buffer.get_capacity());
@@ -185,13 +199,16 @@ impl Pipeline {
             self.handle_write()?;
 
             // handle print when requested
-            if self.config.get_print_option() == &PrintStatus::Progress || 
-            PRINT_REQUEST.swap(false, Ordering::Relaxed) { 
+            if self.config.get_print_option() == &PrintStatus::Progress
+                || PRINT_REQUEST.swap(false, Ordering::Relaxed)
+            {
                 println!("{}", self.metrics);
             }
 
             // EOF check to end the process
-            if self.eof_reached { break; }
+            if self.eof_reached {
+                break;
+            }
         }
 
         Ok(())
@@ -216,70 +233,70 @@ impl Pipeline {
     /// Returns `PipelineError::IoError` when a read fails and `conv=noerror`
     /// is disabled.
     fn handle_read(&mut self) -> Result<()> {
-            let mut accumulated_read_count = 0usize;
+        let mut accumulated_read_count = 0usize;
 
-            loop {
-                // Slide the active window forward based on bytes already accumulated
-                let current_window = &mut self.read_buffer.as_mut_slice()[accumulated_read_count..];
-                
-                let read_promise = self.reader.read(current_window);
-                
-                // Error Handling (conv=noerror logic)
-                if let Err(err) = read_promise {
-                    if !self.config.is_noerror() { 
-                        return Err(PipelineError::IoError(err)); 
-                    }
-                    self.error_found = true;
-                    return Ok(());
+        loop {
+            // Slide the active window forward based on bytes already accumulated
+            let current_window = &mut self.read_buffer.as_mut_slice()[accumulated_read_count..];
+
+            let read_promise = self.reader.read(current_window);
+
+            // Error Handling (conv=noerror logic)
+            if let Err(err) = read_promise {
+                if !self.config.is_noerror() {
+                    return Err(PipelineError::IoError(err));
                 }
-
-                let mut read_count = read_promise.unwrap();
-
-                // Enforce limits from the count parameter if one was provided
-                if let Some(remaining_count) = self.remaining_count {
-                    read_count = read_count.min(remaining_count);
-                    self.remaining_count = Some(remaining_count - read_count);
-                }
-
-                // Natural End-Of-File (EOF) detection
-                if read_count == 0 {
-                    self.eof_reached = true;
-                    return Ok(());
-                }
-
-                accumulated_read_count += read_count;
-                self.read_buffer.set_length(accumulated_read_count);
-                if !self.config.is_fullblock() || self.read_buffer.is_full() { break; }
+                self.error_found = true;
+                return Ok(());
             }
 
-            if self.read_buffer.is_full() {
-                self.metrics.read_blocks += 1;
-            } else if !self.read_buffer.is_empty() {
-                self.metrics.read_partials += 1;
+            let mut read_count = read_promise.unwrap();
+
+            // Enforce limits from the count parameter if one was provided
+            if let Some(remaining_count) = self.remaining_count {
+                read_count = read_count.min(remaining_count);
+                self.remaining_count = Some(remaining_count - read_count);
             }
 
-            Ok(())
+            // Natural End-Of-File (EOF) detection
+            if read_count == 0 {
+                self.eof_reached = true;
+                return Ok(());
+            }
+
+            accumulated_read_count += read_count;
+            self.read_buffer.set_length(accumulated_read_count);
+            if !self.config.is_fullblock() || self.read_buffer.is_full() {
+                break;
+            }
+        }
+
+        if self.read_buffer.is_full() {
+            self.metrics.read_blocks += 1;
+        } else if !self.read_buffer.is_empty() {
+            self.metrics.read_partials += 1;
+        }
+
+        Ok(())
     }
 
     /// Copies bytes from the read buffer into the write buffer
     ///
     /// This method moves the current contents of `read_buffer` into `write_buffer`
-    /// in repeated chunks until no readable bytes remain or the write buffer is full. 
+    /// in repeated chunks until no readable bytes remain or the write buffer is full.
     /// It does not perform any data conversion; conversion is applied later during `write()`
     fn handle_write(&mut self) -> Result<()> {
         let mut read_start = 0usize;
         let mut read_count = self.read_buffer.get_length();
         while read_count > 0 {
-            let copied_count = self.write_buffer.copy_from(
-                self.read_buffer.as_slice(),
-                read_start,
-                read_count
-            );
+            let copied_count =
+                self.write_buffer
+                    .copy_from(self.read_buffer.as_slice(), read_start, read_count);
 
-            if self.write_buffer.is_full() { 
+            if self.write_buffer.is_full() {
                 self.perform_write()?;
             }
-            
+
             read_start += copied_count;
             read_count -= copied_count;
         }
@@ -312,22 +329,30 @@ impl Pipeline {
     fn perform_write(&mut self) -> Result<()> {
         let mut write_start = 0usize;
         let mut write_count = self.write_buffer.get_length();
-        
-        if !self.eof_reached && self.config.is_swap() && write_count % 2 == 1 { 
-            write_count -= 1;
-        }   
 
-        conv::convert(&mut self.write_buffer.as_mut_slice()[..write_count], self.config.get_data_convs());
+        if !self.eof_reached && self.config.is_swap() && write_count % 2 == 1 {
+            write_count -= 1;
+        }
+
+        conv::convert(
+            &mut self.write_buffer.as_mut_slice()[..write_count],
+            self.config.get_data_convs(),
+        );
         while write_count > 0 {
-            let written_bytes = self.writer.write(&self.write_buffer.as_mut_slice()[write_start..write_start + write_count])?;
-            
-            if written_bytes == self.write_buffer.get_capacity() { self.metrics.write_blocks += 1; }
-            else { self.metrics.write_partials += 1; }
+            let written_bytes = self
+                .writer
+                .write(&self.write_buffer.as_mut_slice()[write_start..write_start + write_count])?;
+
+            if written_bytes == self.write_buffer.get_capacity() {
+                self.metrics.write_blocks += 1;
+            } else {
+                self.metrics.write_partials += 1;
+            }
 
             write_start += written_bytes;
             write_count -= written_bytes;
         }
-        
+
         self.metrics.total_bytes += write_start;
         self.write_buffer.drain(write_start);
         Ok(())
@@ -335,7 +360,7 @@ impl Pipeline {
 
     /// Prints the current metrics to stdout based on the provided `PrintStatus`
     pub fn print_metrics(&self) {
-        match self.config.get_print_option()             {
+        match self.config.get_print_option() {
             PrintStatus::None => (),
             PrintStatus::Noxfer => println!("{}", self.metrics.input_output_stats()),
             _ => println!("{}", self.metrics),

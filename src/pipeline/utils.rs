@@ -1,21 +1,25 @@
 use std::io;
 
-use super::{ 
-    PipelineError,
-    Result
-};
-
+use super::{PipelineError, Result};
 
 pub fn check_direct_access(path: &str, block_size: usize, seek: &Option<usize>) -> Result<usize> {
-    let sector_size = get_sector_size(path)
-        .map_err(|e| PipelineError::Hardware(e.to_string()))? as usize;
+    let sector_size =
+        get_sector_size(path).map_err(|e| PipelineError::Hardware(e.to_string()))? as usize;
 
     if !block_size.is_multiple_of(sector_size) {
-        return Err(PipelineError::Mismatch(format!("block size={block_size}"), format!("sector size={sector_size}")));
+        return Err(PipelineError::Mismatch(
+            format!("block size={block_size}"),
+            format!("sector size={sector_size}"),
+        ));
     }
 
-    if let Some(skip_bytes) = seek && skip_bytes % sector_size != 0 {
-        return Err(PipelineError::Mismatch(format!("skip={skip_bytes}"), format!("sector size={sector_size}")));
+    if let Some(skip_bytes) = seek
+        && skip_bytes % sector_size != 0
+    {
+        return Err(PipelineError::Mismatch(
+            format!("skip={skip_bytes}"),
+            format!("sector size={sector_size}"),
+        ));
     }
 
     Ok(sector_size)
@@ -59,7 +63,7 @@ fn linux_sector_size(path: &str) -> io::Result<u32> {
     if meta.file_type().is_block_device() {
         let file = File::open(path)?;
         let mut size: libc::c_int = 0;
-        
+
         // BLKSSZGET
         const BLKSSZGET: libc::c_ulong = 0x1268;
 
@@ -86,7 +90,7 @@ fn macos_sector_size(path: &str) -> io::Result<u32> {
     if meta.file_type().is_block_device() || meta.file_type().is_char_device() {
         let file = File::open(path)?;
         let mut size: u32 = 0;
-        
+
         // macOS ioctl magic number for DKIOCGETBLOCKSIZE
         // Equivalent to _IOR('d', 24, uint32_t)
         const DKIOCGETBLOCKSIZE: libc::c_ulong = 0x40046418;
@@ -150,7 +154,7 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
     if path_str.starts_with("\\\\.\\") {
         let file = std::fs::File::open(path)?;
         let handle = file.as_raw_handle() as *mut c_void;
-        
+
         let mut geometry = DISK_GEOMETRY {
             cylinders: 0,
             media_type: 0,
@@ -159,7 +163,7 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
             bytes_per_sector: 0,
         };
         let mut bytes_returned = 0;
-        
+
         const IOCTL_DISK_GET_DRIVE_GEOMETRY: u32 = 0x70000;
 
         let res = unsafe {
@@ -183,9 +187,9 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
 
     // Standard File
     let mut path_wide: Vec<u16> = path.as_os_str().encode_wide().collect();
-    path_wide.push(0); 
+    path_wide.push(0);
 
-    let mut root_path = vec![0u16; 260]; 
+    let mut root_path = vec![0u16; 260];
     let res = unsafe {
         GetVolumePathNameW(
             path_wide.as_ptr(),
@@ -193,7 +197,7 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
             root_path.len() as u32,
         )
     };
-    
+
     if res == 0 {
         return Err(io::Error::last_os_error());
     }

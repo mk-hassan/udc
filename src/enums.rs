@@ -2,9 +2,9 @@
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub enum SourceType {
-  File(String),
-  #[default]
-  Standard
+    File(String),
+    #[default]
+    Standard,
 }
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -13,7 +13,7 @@ pub enum PrintStatus {
     Noxfer,
     Progress,
     #[default]
-    Default
+    Default,
 }
 
 pub enum DataOps {
@@ -26,7 +26,7 @@ pub enum FileOps {
     NoTrunc = 1,
     Sync = 2,
     Sparse = 4,
-    NoError = 8
+    NoError = 8,
 }
 
 pub enum InputFlags {
@@ -35,7 +35,7 @@ pub enum InputFlags {
     Nocache = 4,
     FullBlock = 8,
     CountBytes = 16,
-    SkipBytes = 32
+    SkipBytes = 32,
 }
 
 pub enum OutputFlags {
@@ -45,5 +45,5 @@ pub enum OutputFlags {
     Excl = 8,
     Nonblock = 16,
     Nocache = 32,
-    SeekBytes = 64
+    SeekBytes = 64,
 }

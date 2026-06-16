@@ -8,15 +8,12 @@
 //!    on underlying storage media by replacing pure zero blocks with seek jumps (`SeekFrom::Current`).
 //! 2. **Direct I/O Configuration (`O_DIRECT`)**: Allowing low-level bypasses of the OS page cache
 //!    for critical high-throughput sector cloning.
-//! 
+//!
 
 use std::fs::File;
-use std::io::{ Seek, SeekFrom, Stdout, Write };
+use std::io::{Seek, SeekFrom, Stdout, Write};
 
-use super::{
-    config::Config,
-    enums::SourceType
-};
+use super::{config::Config, enums::SourceType};
 
 mod utils;
 
@@ -27,8 +24,8 @@ mod utils;
 /// pipeline handling
 pub enum Writer {
     /// File-backed system target
-    /// 
-    /// Encloses the underlying standard filesystem [`File`] handle along with a `bool` 
+    ///
+    /// Encloses the underlying standard filesystem [`File`] handle along with a `bool`
     /// flag indicating whether sparse block optimization (`conv=sparse`) is active
     File(File, bool),
     /// Standard console output descriptor stream
@@ -42,31 +39,31 @@ impl Write for Writer {
     /// If this `Writer` is a [`Writer::File`] variant with sparse allocation enabled,
     /// and the input slice consists **entirely** of `0x00` zero bytes, this method will
     /// optimize space allocation. Instead of writing raw blocks to disk, it executes a
-    /// relative forward seek via [`Seek::seek`]. The virtual file pointer shifts forward, 
+    /// relative forward seek via [`Seek::seek`]. The virtual file pointer shifts forward,
     /// leaving a filesystem "hole" that consumes no physical storage blocks.
     ///
     /// ### Errors
     /// Returns an [`std::io::Error`] if an underlying hardware block write fails,
     /// if a stream connection drops prematurely, or if a sparse seek boundary is violated.
-	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-		if Self::is_sparse(self) && Self::is_all_zeros(buf) {
-			let _ = self.seek(SeekFrom::Current(buf.len() as i64))?;
-			return Ok(buf.len());
-		}
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if Self::is_sparse(self) && Self::is_all_zeros(buf) {
+            let _ = self.seek(SeekFrom::Current(buf.len() as i64))?;
+            return Ok(buf.len());
+        }
 
-		let written_bytes = match self {
-			Writer::File(f, _) => f.write(buf),
-			Writer::Stdout(s) => s.write(buf)
-		}?;
+        let written_bytes = match self {
+            Writer::File(f, _) => f.write(buf),
+            Writer::Stdout(s) => s.write(buf),
+        }?;
 
-		Ok(written_bytes)
-	}
+        Ok(written_bytes)
+    }
 
     // Flushes all intermediate kernel buffers to disk, solidifying persistence.
     ///
     /// ### Structural Invariants for Sparse Output
-    /// For a sparse [`Writer::File`], standard system-level zero-seeks do not advance 
-    /// the physical data metadata length if the file terminates on a sparse boundary. 
+    /// For a sparse [`Writer::File`], standard system-level zero-seeks do not advance
+    /// the physical data metadata length if the file terminates on a sparse boundary.
     /// To ensure the final file size accurately matches the bytes processed, this function
     /// samples the active stream cursor position and updates the filesystem's structural length
     /// boundaries using an explicit file length allocation call before completing.
@@ -74,19 +71,19 @@ impl Write for Writer {
     /// ### Errors
     /// Returns an error if the synchronization interface encounters file-lock problems,
     /// system call interruption, or driver failures.
-	fn flush(&mut self) -> std::io::Result<()> {
-		match self {
-			Writer::File(f, is_sparse) => {
-				f.flush()?;
-				if *is_sparse {
-					let position = f.stream_position()?;
-					f.set_len(position)?;
-				}
-				Ok(())
-			},
-			Writer::Stdout(s) => s.flush(),
-		}
-	}
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Writer::File(f, is_sparse) => {
+                f.flush()?;
+                if *is_sparse {
+                    let position = f.stream_position()?;
+                    f.set_len(position)?;
+                }
+                Ok(())
+            }
+            Writer::Stdout(s) => s.flush(),
+        }
+    }
 }
 
 impl Seek for Writer {
@@ -95,33 +92,33 @@ impl Seek for Writer {
     /// ### Stream Discrepancy Policy
     /// * **[`Writer::File`]**: Seeks are fully forwarded to the hardware block interface.
     /// * **[`Writer::Stdout`]**: Standard terminal pipelines are inherently unseekable.
-    ///   To prevent breaking multi-stage shell execution chains, seeking a standard output 
+    ///   To prevent breaking multi-stage shell execution chains, seeking a standard output
     ///   stream returns `Ok(0)` silently without raising hard errors.
     ///
     /// ### Errors
     /// Returns an error if an on-disk boundary underflow occurs, or if hardware sectors
     /// cannot be verified.
-	fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match self {
             Writer::File(file, _) => {
-				let new_pos = file.seek(pos)?;
-				Ok(new_pos)
-			},
+                let new_pos = file.seek(pos)?;
+                Ok(new_pos)
+            }
             _ => Ok(0),
         }
-	}
+    }
 }
 
 impl Writer {
     /// Factory initializer that constructs a concrete `Writer` matching a [`Config`] profile.
     ///
-    /// Evaluates target variables to determine whether it needs to allocate a persistent file 
-    /// or track a standard output stream handle. It configures properties such as truncation levels, 
-    /// exclusive block flags, and handles immediate initialization jumps if `seek_bytes` parameter bounds 
+    /// Evaluates target variables to determine whether it needs to allocate a persistent file
+    /// or track a standard output stream handle. It configures properties such as truncation levels,
+    /// exclusive block flags, and handles immediate initialization jumps if `seek_bytes` parameter bounds
     /// are active.
     ///
     /// # Errors
-    /// Returns a generic trait object error wrapper if permission checks fail, if a file 
+    /// Returns a generic trait object error wrapper if permission checks fail, if a file
     /// path directory tree is missing, or if an initial offset seek exceeds partition constraints.
     ///
     /// # Examples
@@ -133,39 +130,45 @@ impl Writer {
     /// let config = Config::build(&args).unwrap();
     /// let writer = Writer::build(&config).unwrap();
     /// ```
-	pub fn build(config: &Config) -> Result<Writer, Box<dyn std::error::Error>> {
-		let mut target = match config.get_destination() {
-			SourceType::File(path) => {
-				let file = Self::get_file_writer(
-					path, 
-					config.get_oflag(), 
-					config.is_exec(), 
-					config.is_truncate())?;
-				Writer::File(file, config.is_sparse())
-			},
-			SourceType::Standard => Writer::Stdout(std::io::stdout())
-		};
+    pub fn build(config: &Config) -> Result<Writer, Box<dyn std::error::Error>> {
+        let mut target = match config.get_destination() {
+            SourceType::File(path) => {
+                let file = Self::get_file_writer(
+                    path,
+                    config.get_oflag(),
+                    config.is_exec(),
+                    config.is_truncate(),
+                )?;
+                Writer::File(file, config.is_sparse())
+            }
+            SourceType::Standard => Writer::Stdout(std::io::stdout()),
+        };
 
-		if let &Some(skip_bytes) = config.get_seek() {
+        if let &Some(skip_bytes) = config.get_seek() {
             target.seek(SeekFrom::Start(skip_bytes as u64))?;
         }
 
-		Ok(target)
-	}
+        Ok(target)
+    }
 
     /// High-resolution on-disk file allocator and multi-platform flags constructor.
     ///
-    /// Aggregates platform-specific system flags from configuration parameters (such as `O_DIRECT` 
-    /// on Unix-like layouts or `FILE_FLAG_NO_BUFFERING` on Windows systems) before triggering 
+    /// Aggregates platform-specific system flags from configuration parameters (such as `O_DIRECT`
+    /// on Unix-like layouts or `FILE_FLAG_NO_BUFFERING` on Windows systems) before triggering
     /// the kernel resource allocation loop.
-	fn get_file_writer(path: &str, flags: u8, create_new: bool, truncate: bool) -> Result<File, Box<dyn std::error::Error>> {
+    fn get_file_writer(
+        path: &str,
+        flags: u8,
+        create_new: bool,
+        truncate: bool,
+    ) -> Result<File, Box<dyn std::error::Error>> {
         let mut options = utils::get_options_with_flags(flags);
-        
+
         let file = options
             .create(!create_new)
-			.create_new(create_new)
-			.truncate(truncate)
-			.write(true)
+            .create_new(create_new)
+            .truncate(truncate)
+            .write(true)
             .open(path)?;
 
         #[cfg(target_os = "macos")]
@@ -179,23 +182,22 @@ impl Writer {
     }
 
     /// Evaluates whether a given `Writer` reference is eligible for sparse file allocation.
-	#[inline]
-	fn is_sparse(writer: &Writer) -> bool {
-		match writer {
-			Writer::File(_, is_sparse) => *is_sparse,
-			_ => false,
-		}
-	}
+    #[inline]
+    fn is_sparse(writer: &Writer) -> bool {
+        match writer {
+            Writer::File(_, is_sparse) => *is_sparse,
+            _ => false,
+        }
+    }
 
     /// Analyzes a memory block to determine if it consists exclusively of zero bytes (`0x00`).
     ///
     /// Empty buffers return `false` because they lack physical space to optimize.
-	#[inline]
-	fn is_all_zeros(buffer: &[u8]) -> bool {
-		!buffer.is_empty() && buffer.iter().all(|&b| b == 0)
-	}
+    #[inline]
+    fn is_all_zeros(buffer: &[u8]) -> bool {
+        !buffer.is_empty() && buffer.iter().all(|&b| b == 0)
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -209,8 +211,7 @@ mod tests {
     fn temp_path() -> PathBuf {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir()
-            .join(format!("udc_writer_test_{}_{}", std::process::id(), id))
+        std::env::temp_dir().join(format!("udc_writer_test_{}_{}", std::process::id(), id))
     }
 
     /// Returns an open read-write `File` at `path` (created/truncated).
@@ -339,9 +340,9 @@ mod tests {
         let file = open_rw(&path);
         let mut writer = Writer::File(file, true);
 
-        let _ = writer.write(b"head").unwrap();       // 4 bytes written
-        let _ = writer.write(&[0u8; 4]).unwrap();     // 4 sparse zeros (seeks)
-        let _ = writer.write(b"tail").unwrap();       // 4 bytes written
+        let _ = writer.write(b"head").unwrap(); // 4 bytes written
+        let _ = writer.write(&[0u8; 4]).unwrap(); // 4 sparse zeros (seeks)
+        let _ = writer.write(b"tail").unwrap(); // 4 bytes written
         writer.flush().unwrap();
 
         let contents = read_file(&path);
@@ -393,10 +394,7 @@ mod tests {
         let path = temp_path();
         // Pre-fill with known data to make the seek visible.
         std::fs::write(&path, b"AAAAAA").unwrap();
-        let file = std::fs::OpenOptions::new()
-            .write(true)
-            .open(&path)
-            .unwrap();
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
         let mut writer = Writer::File(file, false);
         writer.seek(SeekFrom::Start(2)).unwrap();
         let _ = writer.write(b"BB").unwrap();
@@ -464,4 +462,3 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 }
-

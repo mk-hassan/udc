@@ -1,7 +1,7 @@
 //! Constants used in the udc crate
-//! 
-//! This module is meant to provide a centralized location for constants that are used throughout the udc crate. 
-//! These constants include expected arguments, data conversion options, output operation options, status print options, 
+//!
+//! This module is meant to provide a centralized location for constants that are used throughout the udc crate.
+//! These constants include expected arguments, data conversion options, output operation options, status print options,
 //! flags, and numerical constants.
 
 // expected arguments

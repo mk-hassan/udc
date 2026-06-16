@@ -1,14 +1,14 @@
 //! Input flag utilities and OS-specific file descriptor tuning.
 //!
-//! This module provides cross-platform translation layers mapping bitwise internal 
+//! This module provides cross-platform translation layers mapping bitwise internal
 //! representation constraints (`iflag`) directly to platform-native raw system call settings.
 
-use std::fs::{File, OpenOptions};
 use crate::enums::InputFlags;
+use std::fs::{File, OpenOptions};
 
 /// Configures an `OpenOptions` configuration sequence matching platform-specific options.
 ///
-/// Maps generic flags like `O_DIRECT` or `O_NONBLOCK` into their respective native 
+/// Maps generic flags like `O_DIRECT` or `O_NONBLOCK` into their respective native
 /// equivalents for Linux or general POSIX-compliant kernels.
 ///
 /// ## Examples
@@ -21,7 +21,7 @@ use crate::enums::InputFlags;
 #[cfg(target_family = "unix")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     use std::os::unix::fs::OpenOptionsExt;
-    
+
     let mut options = OpenOptions::new();
     let mut unix_flags = 0;
 
@@ -43,12 +43,12 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 
 /// Configures an `OpenOptions` configuration sequence matching Windows subsystem options.
 ///
-/// Replicates file flag bindings, mapping direct I/O constraints into unbuffered 
+/// Replicates file flag bindings, mapping direct I/O constraints into unbuffered
 /// hardware sector adjustments.
 ///
 /// ## Warnings
 ///
-/// Nonblocking I/O operations are unsupported via standard Windows named pipes or 
+/// Nonblocking I/O operations are unsupported via standard Windows named pipes or
 /// console handles through this method, emitting a descriptive warning message if specified.
 #[cfg(target_family = "windows")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
@@ -83,8 +83,8 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 /// Returns an I/O error variant wrapping the underlying kernel code if `fcntl` rejects cache adjustments.
 #[cfg(target_os = "macos")]
 pub fn configure_file_for_direct_io(file: &File) -> Result<(), Box<dyn std::error::Error>> {
+    use libc::{F_NOCACHE, fcntl};
     use std::os::unix::io::AsRawFd;
-    use libc::{fcntl, F_NOCACHE};
 
     let fd = file.as_raw_fd();
     let result = unsafe { fcntl(fd, F_NOCACHE, 1) };
@@ -110,8 +110,8 @@ mod tests {
     fn temp_file_with(data: &[u8]) -> (File, PathBuf) {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir()
-            .join(format!("udc_utils_test_{}_{}", std::process::id(), id));
+        let path =
+            std::env::temp_dir().join(format!("udc_utils_test_{}_{}", std::process::id(), id));
         std::fs::write(&path, data).unwrap();
         (File::open(&path).unwrap(), path)
     }
@@ -137,7 +137,10 @@ mod tests {
         let (_, path) = temp_file_with(b"data");
         let mut opts = get_options_with_flags(InputFlags::Nonblock as u8);
         let file = opts.read(true).open(&path);
-        assert!(file.is_ok(), "Expected file open to succeed with Nonblock flag");
+        assert!(
+            file.is_ok(),
+            "Expected file open to succeed with Nonblock flag"
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -164,7 +167,10 @@ mod tests {
         let flags = InputFlags::Direct as u8 | InputFlags::Nonblock as u8;
         let mut opts = get_options_with_flags(flags);
         let file = opts.read(true).open(&path);
-        assert!(file.is_ok(), "Expected combined flags open to succeed on macOS");
+        assert!(
+            file.is_ok(),
+            "Expected combined flags open to succeed on macOS"
+        );
         let _ = std::fs::remove_file(path);
     }
 

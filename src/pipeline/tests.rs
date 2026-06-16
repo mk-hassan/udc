@@ -13,8 +13,8 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-use crate::pipeline::Pipeline;
 use crate::config::{Config, ConfigError};
+use crate::pipeline::Pipeline;
 
 // ===== HELPERS MODULE =====
 
@@ -34,9 +34,13 @@ mod helpers {
         let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
         let thread_id = std::thread::current().id();
         PathBuf::from(format!(
-            "/tmp/udc_test_{}_{}_{}_{}", 
-            prefix, timestamp, counter, 
-            format!("{:?}", thread_id).replace("ThreadId(", "").replace(")", "")
+            "/tmp/udc_test_{}_{}_{}_{}",
+            prefix,
+            timestamp,
+            counter,
+            format!("{:?}", thread_id)
+                .replace("ThreadId(", "")
+                .replace(")", "")
         ))
     }
 
@@ -44,7 +48,8 @@ mod helpers {
     pub fn temp_input_file(data: &[u8]) -> (File, PathBuf) {
         let path = unique_filename("input");
         let mut file = File::create(&path).expect("failed to create temp input file");
-        file.write_all(data).expect("failed to write temp input data");
+        file.write_all(data)
+            .expect("failed to write temp input data");
         file.sync_all().expect("failed to sync temp input file");
         (file, path)
     }
@@ -115,7 +120,10 @@ fn test_build_with_file_input_output() {
     .expect("config creation failed");
 
     let result = Pipeline::build(config);
-    assert!(result.is_ok(), "Pipeline::build should succeed with valid file paths");
+    assert!(
+        result.is_ok(),
+        "Pipeline::build should succeed with valid file paths"
+    );
 }
 
 #[test]
@@ -130,7 +138,10 @@ fn test_build_with_valid_block_sizes() {
     .expect("config creation failed");
 
     let result = Pipeline::build(config);
-    assert!(result.is_ok(), "Pipeline::build should succeed with aligned block sizes");
+    assert!(
+        result.is_ok(),
+        "Pipeline::build should succeed with aligned block sizes"
+    );
 }
 
 #[test]
@@ -146,7 +157,10 @@ fn test_build_mismatched_block_sizes_validation() {
 
     // Should succeed even with mismatched sizes (validation happens at runtime)
     let result = Pipeline::build(config);
-    assert!(result.is_ok(), "Pipeline::build should succeed with mismatched block sizes");
+    assert!(
+        result.is_ok(),
+        "Pipeline::build should succeed with mismatched block sizes"
+    );
 }
 
 // ===== BASIC DATA TRANSFER TESTS =====
@@ -170,8 +184,16 @@ fn test_basic_read_write_single_full_block() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     assert_eq!(output, input_data, "output should match input");
-    assert_eq!(pipeline.get_metrics().read_blocks, 1, "should have 1 read block");
-    assert_eq!(pipeline.get_metrics().write_blocks, 1, "should have 1 write block");
+    assert_eq!(
+        pipeline.get_metrics().read_blocks,
+        1,
+        "should have 1 read block"
+    );
+    assert_eq!(
+        pipeline.get_metrics().write_blocks,
+        1,
+        "should have 1 write block"
+    );
 }
 
 #[test]
@@ -222,7 +244,11 @@ fn test_read_write_partial_block() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     assert_eq!(output, input_data, "output should match input");
-    assert_eq!(pipeline.get_metrics().read_partials, 1, "should have 1 partial read");
+    assert_eq!(
+        pipeline.get_metrics().read_partials,
+        1,
+        "should have 1 partial read"
+    );
 }
 
 #[test]
@@ -243,8 +269,16 @@ fn test_empty_file_transfer() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     assert_eq!(output.len(), 0, "output should be empty");
-    assert_eq!(pipeline.get_metrics().read_blocks, 0, "should have 0 read blocks");
-    assert_eq!(pipeline.get_metrics().write_blocks, 0, "should have 0 write blocks");
+    assert_eq!(
+        pipeline.get_metrics().read_blocks,
+        0,
+        "should have 0 read blocks"
+    );
+    assert_eq!(
+        pipeline.get_metrics().write_blocks,
+        0,
+        "should have 0 write blocks"
+    );
 }
 
 #[test]
@@ -266,11 +300,13 @@ fn test_count_limit_enforcement() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     assert_eq!(
-        output.len(), 2048,
+        output.len(),
+        2048,
         "output should be exactly 2 blocks (2048 bytes)"
     );
     assert_eq!(
-        pipeline.get_metrics().read_blocks, 2,
+        pipeline.get_metrics().read_blocks,
+        2,
         "should have read exactly 2 blocks"
     );
 }
@@ -296,10 +332,7 @@ fn test_to_lower_conversion() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     // Should start with lowercase conversion
-    assert!(
-        output.len() >= 11,
-        "output should contain converted data"
-    );
+    assert!(output.len() >= 11, "output should contain converted data");
     assert_eq!(&output[..11], b"hello world", "should convert to lowercase");
 }
 
@@ -342,7 +375,11 @@ fn test_swap_conversion() {
     pipeline.run().expect("pipeline run failed");
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
-    assert_eq!(output, &[0x34u8, 0x12, 0x78, 0x56], "bytes should be swapped");
+    assert_eq!(
+        output,
+        &[0x34u8, 0x12, 0x78, 0x56],
+        "bytes should be swapped"
+    );
 }
 
 #[test]
@@ -363,7 +400,11 @@ fn test_combined_conversions_lcase_then_swap() {
     pipeline.run().expect("pipeline run failed");
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
-    assert_eq!(output, [b'b', b'a', 0x01, 0x00u8, b'd', b'c', 0x02, 0x00u8], "should apply lcase then swap correctly");
+    assert_eq!(
+        output,
+        [b'b', b'a', 0x01, 0x00u8, b'd', b'c', 0x02, 0x00u8],
+        "should apply lcase then swap correctly"
+    );
 }
 
 #[test]
@@ -385,7 +426,10 @@ fn test_conversion_with_multiple_blocks() {
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     let expected = b"first_block_of_data_second_block_of_data_third_block_data";
-    assert_eq!(output, expected, "conversion should be applied across all blocks");
+    assert_eq!(
+        output, expected,
+        "conversion should be applied across all blocks"
+    );
 }
 
 // ===== SYNC AND SPARSE MODE TESTS =====
@@ -516,7 +560,10 @@ fn test_io_error_propagation_without_noerror() {
 
     // Without conv=noerror, errors should not be tolerated at build time
     let result = Pipeline::build(config);
-    assert!(result.is_err(), "should fail without conv=noerror on bad input");
+    assert!(
+        result.is_err(),
+        "should fail without conv=noerror on bad input"
+    );
 }
 
 // ===== BLOCK SIZE SCENARIO TESTS =====
@@ -562,7 +609,8 @@ fn test_ibs_greater_than_obs() {
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
     // Should contain all input data
     assert_eq!(
-        output[..512], input_data[..],
+        output[..512],
+        input_data[..],
         "first 512 bytes should match input"
     );
 }
@@ -585,12 +633,10 @@ fn test_block_mismatch_boundary_handling() {
     pipeline.run().expect("pipeline run failed");
 
     let output = read_file_contents(&ctx.output_path).expect("failed to read output");
-    assert!(
-        output.len() >= 100,
-        "output should contain input data"
-    );
+    assert!(output.len() >= 100, "output should contain input data");
     assert_eq!(
-        &output[..100], &input_data[..],
+        &output[..100],
+        &input_data[..],
         "first 100 bytes should match input"
     );
 }
