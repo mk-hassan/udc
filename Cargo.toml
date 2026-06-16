@@ -1,7 +1,31 @@
 [package]
-name = "ccdd"
-version = "0.1.0"
+name = "udc"
 edition = "2024"
+version = "1.0.0"
+rust-version = "1.85.0"
+license = "MIT OR Apache-2.0"
+description = "Unified Data Clone (UDC) is a cross-platform, high-performance, low-level block I/O data streaming utility designed to emulate the core behavior of the standard POSIX `dd` command."
+repository = "https://github.com/mk-hassan/udc"
+homepage = "https://github.com/mk-hassan/udc"
+categories = ["command-line-utilities", "filesystem"]
+keywords = ["cli", "io", "storage", "os"]
+readme = "README.md"
+authors = ["Mohammad Hassan <mk.bayumi@gmail.com>"]
+exclude = [
+  ".github/",
+  ".gitignore",
+]
 
 [dependencies]
 signal-hook = "0.4.4"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.186"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = ["Win32_Storage_FileSystem"] }
+
+
+[package.metadata.docs.rs]
+# Passes the flag to docs.rs when it builds your documentation
+rustdoc-args = ["--document-private-items"]
