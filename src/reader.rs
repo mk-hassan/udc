@@ -6,10 +6,7 @@
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Stdin};
 
-use super::{
-    config::Config,
-    enums::{InputFlags, SourceType},
-};
+use super::{config::Config, enums};
 
 mod utils;
 
@@ -75,11 +72,11 @@ impl Reader {
     /// fails, or an early EOF happens during data skipping.
     pub fn build(config: &Config) -> Result<Reader, Box<dyn std::error::Error>> {
         let mut target = match config.get_source() {
-            SourceType::File(path) => {
+            enums::SourceType::File(path) => {
                 let file = Self::get_file_reader(path, config.get_iflag())?;
                 Reader::File(file)
             }
-            SourceType::Standard => Reader::Stdin(std::io::stdin()),
+            enums::SourceType::Standard => Reader::Stdin(std::io::stdin()),
         };
 
         if let &Some(skip_bytes) = config.get_skip() {
@@ -129,7 +126,7 @@ impl Reader {
 
         #[cfg(target_os = "macos")]
         {
-            if flags & InputFlags::Direct as u8 != 0 {
+            if flags & enums::InputFlags::Direct as u8 != 0 {
                 utils::configure_file_for_direct_io(&file)?;
             }
         }

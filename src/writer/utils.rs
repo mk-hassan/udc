@@ -44,12 +44,13 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     options
 }
 
-#[cfg(target_family = "windows")]
 /// Builds [`OpenOptions`] with platform-specific output flags applied.
 ///
 /// On Windows, this maps supported `oflag` bits to the corresponding
 /// `OpenOptionsExt::custom_flags` values. Flags that are not meaningful on
 /// Windows are ignored or downgraded to a warning.
+#[allow(unused_imports)]
+#[cfg(target_family = "windows")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     use std::os::windows::fs::OpenOptionsExt;
     use windows::Win32::Storage::FileSystem;
@@ -58,7 +59,7 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 
     let mut windows_flags = 0;
     if flags & OutputFlags::Direct as u8 != 0 {
-        windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING;
+        windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING.0;
     }
 
     if flags & OutputFlags::Nonblock as u8 != 0 {
@@ -66,7 +67,7 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     }
 
     if flags & OutputFlags::Sync as u8 != 0 || flags & OutputFlags::Dsync as u8 != 0 {
-        windows_flags |= FileSystem::FILE_FLAG_WRITE_THROUGH;
+        windows_flags |= FileSystem::FILE_FLAG_WRITE_THROUGH.0;
     }
 
     if windows_flags != 0 {

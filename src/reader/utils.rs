@@ -50,6 +50,7 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 ///
 /// Nonblocking I/O operations are unsupported via standard Windows named pipes or
 /// console handles through this method, emitting a descriptive warning message if specified.
+#[allow(unused_imports)]
 #[cfg(target_family = "windows")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     use std::os::windows::fs::OpenOptionsExt;
@@ -59,7 +60,7 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     let mut windows_flags = 0;
 
     if flags & InputFlags::Direct as u8 != 0 {
-        windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING;
+        windows_flags |= FileSystem::FILE_FLAG_NO_BUFFERING.0;
     }
 
     if flags & InputFlags::Nonblock as u8 != 0 {

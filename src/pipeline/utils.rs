@@ -107,7 +107,6 @@ fn macos_sector_size(path: &str) -> io::Result<u32> {
 
 #[cfg(target_os = "windows")]
 fn windows_sector_size(path: &str) -> io::Result<u32> {
-    use std::ffi::OsStr;
     use std::os::raw::c_void;
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::io::AsRawHandle;
@@ -121,34 +120,36 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
         bytes_per_sector: u32,
     }
 
-    extern "system" {
-        fn DeviceIoControl(
-            hDevice: *mut c_void,
-            dwIoControlCode: u32,
-            lpInBuffer: *mut c_void,
-            nInBufferSize: u32,
-            lpOutBuffer: *mut c_void,
-            nOutBufferSize: u32,
-            lpBytesReturned: *mut u32,
-            lpOverlapped: *mut c_void,
-        ) -> i32;
+    unsafe {
+        extern "system" {
+            fn DeviceIoControl(
+                hDevice: *mut c_void,
+                dwIoControlCode: u32,
+                lpInBuffer: *mut c_void,
+                nInBufferSize: u32,
+                lpOutBuffer: *mut c_void,
+                nOutBufferSize: u32,
+                lpBytesReturned: *mut u32,
+                lpOverlapped: *mut c_void,
+            ) -> i32;
 
-        fn GetVolumePathNameW(
-            lpszFileName: *const u16,
-            lpszVolumePathName: *mut u16,
-            cchBufferLength: u32,
-        ) -> i32;
+            fn GetVolumePathNameW(
+                lpszFileName: *const u16,
+                lpszVolumePathName: *mut u16,
+                cchBufferLength: u32,
+            ) -> i32;
 
-        fn GetDiskFreeSpaceW(
-            lpRootPathName: *const u16,
-            lpSectorsPerCluster: *mut u32,
-            lpBytesPerSector: *mut u32,
-            lpNumberOfFreeClusters: *mut u32,
-            lpTotalNumberOfClusters: *mut u32,
-        ) -> i32;
+            fn GetDiskFreeSpaceW(
+                lpRootPathName: *const u16,
+                lpSectorsPerCluster: *mut u32,
+                lpBytesPerSector: *mut u32,
+                lpNumberOfFreeClusters: *mut u32,
+                lpTotalNumberOfClusters: *mut u32,
+            ) -> i32;
+        }
     }
 
-    let path_str = path.to_string_lossy();
+    let path_str = path.to_string();
 
     // Raw Physical Drive
     if path_str.starts_with("\\\\.\\") {
@@ -186,7 +187,7 @@ fn windows_sector_size(path: &str) -> io::Result<u32> {
     }
 
     // Standard File
-    let mut path_wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    let mut path_wide: Vec<u16> = path.as_ptr().encode_wide().collect();
     path_wide.push(0);
 
     let mut root_path = vec![0u16; 260];
