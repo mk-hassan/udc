@@ -4,7 +4,7 @@
 //! current platform and applies macOS-specific direct I/O configuration when
 //! requested.
 
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 
 use crate::enums::OutputFlags;
 
@@ -77,12 +77,14 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     options
 }
 
-#[cfg(target_os = "macos")]
 /// Configures a file descriptor for direct I/O on macOS.
 ///
 /// This applies `F_NOCACHE` to the file descriptor so the kernel avoids
 /// caching reads and writes for the target file.
-pub fn configure_file_for_direct_io(file: &File) -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(target_os = "macos")]
+pub fn configure_file_for_direct_io(
+    file: &std::file::File,
+) -> Result<(), Box<dyn std::error::Error>> {
     use libc::{F_NOCACHE, fcntl};
     use std::os::unix::io::AsRawFd;
 
@@ -111,15 +113,6 @@ mod tests {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!("udc_wutils_test_{}_{}", std::process::id(), id))
-    }
-
-    fn open_write(path: &PathBuf) -> File {
-        OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)
-            .unwrap()
     }
 
     // ── get_options_with_flags ────────────────────────────────────────────────
@@ -198,6 +191,45 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    // ── Windows: get_options_with_flags ──────────────────────────────────────
+
+    /// With no flags, the returned `OpenOptions` opens a file for writing.
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn no_flags_opens_file_for_writing() {
+        let path = temp_path();
+        let mut opts = get_options_with_flags(0);
+        let result = opts.write(true).create(true).truncate(true).open(&path);
+        assert!(result.is_ok(), "Expected open to succeed with no flags");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The `Nonblock` flag is unsupported on Windows but must not cause a panic
+    /// or prevent the file from being opened.
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn nonblock_flag_opens_regular_file() {
+        let path = temp_path();
+        let mut opts = get_options_with_flags(OutputFlags::Nonblock as u8);
+        let result = opts.write(true).create(true).truncate(true).open(&path);
+        assert!(
+            result.is_ok(),
+            "Expected open to succeed with Nonblock flag on Windows"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The `Direct` flag sets `FILE_FLAG_NO_BUFFERING`; the call must not panic
+    /// (sector-aligned access may be required, so open failure is acceptable).
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn direct_flag_does_not_panic_on_windows() {
+        let path = temp_path();
+        let mut opts = get_options_with_flags(OutputFlags::Direct as u8);
+        let _ = opts.write(true).create(true).truncate(true).open(&path);
+        let _ = std::fs::remove_file(path);
+    }
+
     // ── configure_file_for_direct_io ──────────────────────────────────────────
 
     /// On macOS, `configure_file_for_direct_io` succeeds for a valid open file.
@@ -205,7 +237,13 @@ mod tests {
     #[cfg(target_os = "macos")]
     fn configure_direct_io_succeeds_on_valid_file() {
         let path = temp_path();
-        let file = open_write(&path);
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .unwrap();
+
         let result = configure_file_for_direct_io(&file);
         assert!(
             result.is_ok(),

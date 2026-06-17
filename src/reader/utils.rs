@@ -4,7 +4,7 @@
 //! representation constraints (`iflag`) directly to platform-native raw system call settings.
 
 use crate::enums::InputFlags;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 
 /// Configures an `OpenOptions` configuration sequence matching platform-specific options.
 ///
@@ -83,7 +83,9 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 ///
 /// Returns an I/O error variant wrapping the underlying kernel code if `fcntl` rejects cache adjustments.
 #[cfg(target_os = "macos")]
-pub fn configure_file_for_direct_io(file: &File) -> Result<(), Box<dyn std::error::Error>> {
+pub fn configure_file_for_direct_io(
+    file: &std::fs::File,
+) -> Result<(), Box<dyn std::error::Error>> {
     use libc::{F_NOCACHE, fcntl};
     use std::os::unix::io::AsRawFd;
 
@@ -103,6 +105,7 @@ pub fn configure_file_for_direct_io(file: &File) -> Result<(), Box<dyn std::erro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -172,6 +175,47 @@ mod tests {
             file.is_ok(),
             "Expected combined flags open to succeed on macOS"
         );
+        let _ = std::fs::remove_file(path);
+    }
+
+    // ── Windows: get_options_with_flags ──────────────────────────────────────
+
+    /// With no flags set, the returned `OpenOptions` opens a real file for reading.
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn no_flags_opens_file_for_reading() {
+        let (_, path) = temp_file_with(b"hello");
+        let mut opts = get_options_with_flags(0);
+        let file = opts.read(true).open(&path);
+        assert!(file.is_ok(), "Expected file open to succeed with no flags");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The `Nonblock` flag is unsupported on Windows but must not cause a panic
+    /// or prevent the file from being opened.
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn nonblock_flag_opens_regular_file() {
+        let (_, path) = temp_file_with(b"data");
+        let mut opts = get_options_with_flags(InputFlags::Nonblock as u8);
+        let file = opts.read(true).open(&path);
+        assert!(
+            file.is_ok(),
+            "Expected file open to succeed with Nonblock flag on Windows"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The `Direct` flag sets `FILE_FLAG_NO_BUFFERING`; on a regular file this
+    /// may fail depending on the filesystem, so only verify the call does not panic.
+    #[test]
+    #[cfg(target_family = "windows")]
+    fn direct_flag_does_not_panic_on_windows() {
+        let (_, path) = temp_file_with(b"direct");
+        let mut opts = get_options_with_flags(InputFlags::Direct as u8);
+        // FILE_FLAG_NO_BUFFERING requires sector-aligned access; open may fail
+        // on a regular temp file — that is acceptable, panic is not.
+        let _ = opts.read(true).open(&path);
         let _ = std::fs::remove_file(path);
     }
 

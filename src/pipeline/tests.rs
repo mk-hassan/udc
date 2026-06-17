@@ -34,7 +34,8 @@ mod helpers {
         let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
         let thread_id = std::thread::current().id();
         PathBuf::from(format!(
-            "/tmp/udc_test_{}_{}_{}_{}",
+            "{}/udc_test_{}_{}_{}_{}",
+            std::env::temp_dir().display(),
             prefix,
             timestamp,
             counter,
@@ -46,7 +47,7 @@ mod helpers {
 
     /// Creates a temporary file with the given data and returns (file handle, path).
     pub fn temp_input_file(data: &[u8]) -> (File, PathBuf) {
-        let path = unique_filename("input");
+        let path: PathBuf = unique_filename("input");
         let mut file = File::create(&path).expect("failed to create temp input file");
         file.write_all(data)
             .expect("failed to write temp input data");
