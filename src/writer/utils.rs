@@ -8,12 +8,12 @@ use std::fs::OpenOptions;
 
 use crate::enums::OutputFlags;
 
-#[cfg(target_family = "unix")]
 /// Builds [`OpenOptions`] with platform-specific output flags applied.
 ///
 /// On Unix-like platforms, this maps supported `oflag` bits to the underlying
 /// `OpenOptionsExt::custom_flags` values. Unsupported flags are ignored by this
 /// helper and are expected to be handled by higher-level validation.
+#[cfg(target_family = "unix")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     use std::os::unix::fs::OpenOptionsExt;
 
@@ -49,7 +49,6 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 /// On Windows, this maps supported `oflag` bits to the corresponding
 /// `OpenOptionsExt::custom_flags` values. Flags that are not meaningful on
 /// Windows are ignored or downgraded to a warning.
-#[allow(unused_imports)]
 #[cfg(target_family = "windows")]
 pub fn get_options_with_flags(flags: u8) -> OpenOptions {
     use std::os::windows::fs::OpenOptionsExt;
@@ -83,7 +82,7 @@ pub fn get_options_with_flags(flags: u8) -> OpenOptions {
 /// caching reads and writes for the target file.
 #[cfg(target_os = "macos")]
 pub fn configure_file_for_direct_io(
-    file: &std::file::File,
+    file: &std::fs::File,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use libc::{F_NOCACHE, fcntl};
     use std::os::unix::io::AsRawFd;
