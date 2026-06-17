@@ -186,16 +186,18 @@ impl Pipeline {
             // read into the buffer
             self.handle_read()?;
 
-            // sync handling
+            // error handling
             if self.error_found && !self.config.is_sync() {
                 continue;
             }
-            if self.config.is_sync() && !self.eof_reached {
+
+            // sync handling
+            if (self.config.is_sync() || self.config.is_direct_output()) && !self.eof_reached {
                 self.read_buffer.fill_rest(0);
                 self.read_buffer.set_length(self.read_buffer.get_capacity());
             }
 
-            // write the buffer to the output
+            // output bufffer management
             self.handle_write()?;
 
             // handle print when requested
