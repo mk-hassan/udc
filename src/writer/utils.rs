@@ -240,7 +240,7 @@ mod tests {
             .write(true)
             .create(true)
             .truncate(true)
-            .open(path)
+            .open(&path)
             .unwrap();
 
         let result = configure_file_for_direct_io(&file);
